@@ -18,7 +18,6 @@ import { ItemBank } from 'oldschooljs/dist/meta/types';
 import { CLIENT_ID, OWNER_IDS, production, SupportServer } from '../../config';
 import { BLACKLISTED_GUILDS, BLACKLISTED_USERS, syncBlacklists } from '../../lib/blacklists';
 import { badges, BadgesEnum, BitField, BitFieldData, DISABLED_COMMANDS } from '../../lib/constants';
-import { syncDocs } from '../../lib/docsHelper';
 import { addToDoubleLootTimer } from '../../lib/doubleLoot';
 import { patreonTask } from '../../lib/patreon';
 import { runRolesTask } from '../../lib/rolesTask';
@@ -526,11 +525,6 @@ export const adminCommand: OSBMahojiCommand = {
 					required: true
 				}
 			]
-		},
-		{
-			type: ApplicationCommandOptionType.Subcommand,
-			name: 'sync_docs',
-			description: 'Syncs wiki articles for docs command'
 		}
 	],
 	run: async ({
@@ -562,7 +556,6 @@ export const adminCommand: OSBMahojiCommand = {
 		bitfield?: { user: MahojiUserOption; add?: string; remove?: string };
 		double_loot?: { reset?: boolean; add?: string };
 		ltc?: {};
-		sync_docs?: {};
 		view?: { thing: string };
 		// wipe_bingo_temp_cls?: {};
 		lottery_dump?: {};
@@ -574,17 +567,6 @@ export const adminCommand: OSBMahojiCommand = {
 		const isContributor = adminUser.bitfield.includes(BitField.isContributor);
 		const isOwner = OWNER_IDS.includes(userID.toString());
 		const isMod = isOwner || adminUser.bitfield.includes(BitField.isModerator);
-		const IsWikiContributor = isMod || adminUser.bitfield.includes(BitField.IsWikiContributor);
-
-		/**
-		 * Docs/Wiki command(s)
-		 */
-
-		if (!IsWikiContributor) return randArrItem(gifs);
-		if (options.sync_docs) {
-			syncDocs();
-			return 'Docs articles updated';
-		}
 
 		/**
 		 *
