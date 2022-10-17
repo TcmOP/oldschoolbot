@@ -528,7 +528,7 @@ export const adminCommand: OSBMahojiCommand = {
 		const IsWikiContributor = isMod || adminUser.bitfield.includes(BitField.IsWikiContributor);
 
 		/**
-		 * Docs/Wiki command(s)
+		 * Docs/Wiki command(s) test test
 		 */
 
 		if (!IsWikiContributor) return randArrItem(gifs);
