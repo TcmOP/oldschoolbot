@@ -5,23 +5,42 @@ import { GITBOOK_SPACE_ID, GITBOOK_TOKEN } from '../config';
 import { prisma } from './settings/prisma';
 import { logError } from './util/logError';
 
-export interface DocsSection {
+export interface DocsContent {
+	object: string;
 	id: string;
-	title: string;
-	body: string;
-	path: string;
+	parents: string[];
+	pages: DocsPages[];
+	files: DocsFiles[];
+	urls: string[];
+	git: string[];
 }
 
-export interface DocsArticle {
+export interface DocsPages {
 	id: string;
 	title: string;
-	path: string;
-	sections: DocsSection[];
+	kind: 'sheet' | string;
+	[key: string]: any;
+	pages?: DocsPages[];
+	markdown: string;
 }
 
-export interface DocsResponse {
-	items: DocsArticle[];
-	next: JSON;
+export interface DocsSheet {
+	id: string;
+	title: string;
+	kind: 'sheet' | string;
+	description: string;
+	path: string;
+	slug: string;
+	pages?: DocsSheet[];
+	[key: string]: any;
+	markdown: string;
+}
+
+export interface DocsFiles {
+	id: string;
+	name: string;
+	downloadURL: string;
+	contentType: string;
 }
 
 export interface DocsDefaultResults {
@@ -49,71 +68,98 @@ export const DefaultDocsResults: DocsDefaultResults[] = [
 ];
 
 export async function syncDocs() {
-	let page = 0;
-	let next = [];
-	do {
-		try {
-			const results = await fetch(
-				`https://api.gitbook.com/v1/spaces/${GITBOOK_SPACE_ID}/search?query=*&limit=1000&page=${page}`,
+	try {
+		const results = await fetch(`https://api.gitbook.com/v1/spaces/${GITBOOK_SPACE_ID}/content`, {
+			headers: {
+				Authorization: `Bearer ${GITBOOK_TOKEN}`
+			}
+		});
+
+		const resultJson = await results.json();
+
+		console.log(resultJson);
+		let articlesToUpdate: { id: string; name: string; value: string; body: string }[] = [];
+		const { pages } = resultJson as DocsContent;
+
+		const sheets: string[] = [];
+
+		function filter(pages: DocsPages[]) {
+			pages.forEach(p => {
+				if (p.kind === 'sheet') sheets.push(p.id);
+
+				if (p.pages && p.pages.length > 0) filter(p.pages);
+			});
+		}
+
+		filter(pages);
+
+		for (let sheet of sheets) {
+			const pageResults = await fetch(
+				`https://api.gitbook.com/v1/spaces/${GITBOOK_SPACE_ID}/content/page/${sheet}?format=markdown`,
 				{
 					headers: {
 						Authorization: `Bearer ${GITBOOK_TOKEN}`
 					}
 				}
 			);
+			const pageRes: DocsSheet = await pageResults.json();
+			let parsedPage: string = pageRes.markdown;
+			parsedPage = parsedPage.replace(/^#[a-zA-Z0-9 !?]+[\\n|\n]+/, ''); // Remove page title
+			parsedPage = parsedPage.replaceAll(/(##+\s)([a-zA-Z0-9 !?]+)([\\n|\n]+)/g, 'SECTIONSPLIT**$2**\n'); // Make section headers bold, add split identifier
+			const sections: string[] = parsedPage.split('SECTIONSPLIT');
 
-			const resultJson = await results.json();
-			let articlesToUpdate: { id: string; name: string; value: string; body: string }[] = [];
-			next = resultJson.next;
-			const { items } = resultJson as DocsResponse;
-			for (let item of items) {
-				if (item.sections.length === 0) {
+			for (let section of sections) {
+				let index = sections.indexOf(section);
+				console.log(section,'\n\nnew section\n\n');
+				if (index === 0) {
 					articlesToUpdate.push({
-						id: item.id,
-						name: item.title,
-						value: item.path,
-						body: `${item.title} - homepage`
+						id: pageRes.id,
+						name: pageRes.title,
+						value: pageRes.path,
+						body: pageRes.markdown
 					});
-					continue;
-				}
-				for (let section of item.sections) {
-					if (section.title === '')
-						articlesToUpdate.push({
-							id: section.id,
-							name: item.title,
-							value: item.path,
-							body: section.body.substring(0, 749)
-						});
-					// console.log(`id: ${section.id} \nname: ${item.title}\nvalue: ${item.path}\n\n`);
-					// console.log(`id: ${section.id} \n name: ${item.title} - ${section.title}\n value: ${section.path}`);
+				} else {
+					let thisMatch = section.match(/(?<=\*{2})(.*?)(?=\*{2})/);
+					let thisName = pageRes.title;
+					let thisPath = pageRes.path;
+					if (thisMatch) {
+						thisName = thisName.concat(' - ').concat(thisMatch[0]);
+						let thisPathSection = thisMatch[0].replaceAll(' ', '-');
+						thisPath = thisPath.concat('#').concat(thisPathSection);
+						console.log(thisPath);
+						console.log(thisName);
+					}
+
 					articlesToUpdate.push({
-						id: section.id,
-						name: `${item.title} - ${section.title}`.toString(),
-						value: section.path,
-						body: section.body.substring(0, 749)
+						id: pageRes.id.concat(index.toString()),
+						name: thisName,
+						value: thisPath,
+						body: section
 					});
 				}
 			}
-			// console.log(articlesToUpdate);
-			await prisma.$transaction(
-				articlesToUpdate.map(a =>
-					prisma.wikiDocs.upsert({
-						where: { path: a.value },
-						update: {},
-						create: {
-							id: a.id,
-							name: a.name,
-							path: a.value,
-							body: a.body.substring(0, 749)
-						}
-					})
-				)
-			);
-			page++;
-		} catch (err: any) {
-			logError(err);
 		}
-	} while (typeof next !== 'undefined');
+
+		// console.log(`id: ${section.id} \nname: ${item.title}\nvalue: ${item.path}\n\n`);
+		// console.log(`id: ${section.id} \n name: ${item.title} - ${section.title}\n value: ${section.path}`);
+		// console.log(articlesToUpdate);
+		await prisma.$transaction(
+			articlesToUpdate.map(a =>
+				prisma.wikiDocs.upsert({
+					create: {
+						id: a.id,
+						name: a.name,
+						path: a.value,
+						body: a.body.substring(0, 4999)
+					},
+					update: { id: a.id, name: a.name, path: a.value, body: a.body.substring(0, 4999) },
+					where: { path: a.value }
+				})
+			)
+		);
+	} catch (err: any) {
+		logError(err);
+	}
 
 	return 'Updating Docs';
 }

@@ -41,7 +41,7 @@ export const docsCommand: OSBMahojiCommand = {
 		if (!validDoc && options.query !== '' && !defaultDoc) return 'That article was not found.';
 
 		if (defaultDoc) return `<${GITBOOK_URL}${defaultDoc.value}>`;
-		const bodyParse = validDoc?.body.replace(/[\r\n]{2,}/gs, '\n').replace(/[\r\n]/gs, ' | ');
+		const bodyParse = validDoc?.body.replaceAll('``', '` `').replaceAll('\\\n', '\n').substring(0, 700); // .replace(/[\r\n]{2,}/gs, '\n').replace(/[\r\n]/gs, ' | ');
 
 		let response = '';
 
