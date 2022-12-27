@@ -104,40 +104,18 @@ export async function syncDocs() {
 			);
 			const pageRes: DocsSheet = await pageResults.json();
 			let parsedPage: string = pageRes.markdown;
-			parsedPage = parsedPage.replace(/^#[a-zA-Z0-9 !?]+[\\n|\n]+/, ''); // Remove page title
-			parsedPage = parsedPage.replaceAll(/(##+\s)([a-zA-Z0-9 !?]+)([\\n|\n]+)/g, 'SECTIONSPLIT**$2**\n'); // Make section headers bold, add split identifier
-			const sections: string[] = parsedPage.split('SECTIONSPLIT');
+			parsedPage = parsedPage
+				.replace(/(---)(\n)(\bdescription: )([>\n -]*)([a-zA-Z. \n/'!-,";:<>`~_+=?-]+)(\n---)/g, '$5') // Format page description if present.
+				.replace(/^#[a-zA-Z0-9 !?]+[\\n|\n]+/, '') // Remove page title
+				.replace(/((\|[^|\r\n]*)+\|(\r?\n|\r)?)+/g, '') // Remove any tables because they won't render
+				.replaceAll(/(##+\s)([a-zA-Z0-9 !?()-\/:]+)([\\][n])+/g, '**$2**\n'); // Make section headers bold
 
-			for (let section of sections) {
-				let index = sections.indexOf(section);
-				console.log(section,'\n\nnew section\n\n');
-				if (index === 0) {
-					articlesToUpdate.push({
-						id: pageRes.id,
-						name: pageRes.title,
-						value: pageRes.path,
-						body: pageRes.markdown
-					});
-				} else {
-					let thisMatch = section.match(/(?<=\*{2})(.*?)(?=\*{2})/);
-					let thisName = pageRes.title;
-					let thisPath = pageRes.path;
-					if (thisMatch) {
-						thisName = thisName.concat(' - ').concat(thisMatch[0]);
-						let thisPathSection = thisMatch[0].replaceAll(' ', '-');
-						thisPath = thisPath.concat('#').concat(thisPathSection);
-						console.log(thisPath);
-						console.log(thisName);
-					}
-
-					articlesToUpdate.push({
-						id: pageRes.id.concat(index.toString()),
-						name: thisName,
-						value: thisPath,
-						body: section
-					});
-				}
-			}
+			articlesToUpdate.push({
+				id: pageRes.id,
+				name: pageRes.title,
+				value: pageRes.path,
+				body: parsedPage
+			});
 		}
 
 		// console.log(`id: ${section.id} \nname: ${item.title}\nvalue: ${item.path}\n\n`);
