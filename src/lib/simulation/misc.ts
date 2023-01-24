@@ -212,3 +212,8 @@ export const NexNonUniqueTable = new LootTable()
 	.every(NexNonUniqueBaseTable, 2)
 	.oneIn(25, 'Nihil shard', [1, 20])
 	.oneIn(100, 'Rune sword');
+
+export const PhantomMuspahUniqueTable = new LootTable()
+	.add('Frozen cache', 1, 4)
+	.add('Ancient icon', 1, 2)
+	.add('Venator shard', 1, 1);

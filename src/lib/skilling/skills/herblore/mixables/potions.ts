@@ -490,6 +490,16 @@ const Potions: Mixable[] = [
 		}),
 		tickRate: 10,
 		bankTimePerPotion: 0.5
+	},
+	{
+		name: 'Forgotton brew(4)',
+		aliases: ['Forgotton brew (4)', 'Forgotton brew'],
+		id: itemID('Forgotton brew(4)'),
+		level: 91,
+		xp: 145,
+		inputItems: new Bank({ 'Ancient brew (4)': 1, 'Ancient essence': 80 }),
+		tickRate: 3,
+		bankTimePerPotion: 0.17
 	}
 ];
 

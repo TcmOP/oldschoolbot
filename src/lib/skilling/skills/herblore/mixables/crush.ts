@@ -108,6 +108,17 @@ const Crush: Mixable[] = [
 		tickRate: 1,
 		bankTimePerPotion: 0,
 		wesley: true
+	},
+	{
+		name: 'Crushed nest',
+		aliases: ['ancient essence', 'ancient ess', 'ancient'],
+		id: itemID('Ancient essence'),
+		level: 1,
+		xp: 0,
+		inputItems: new Bank({ 'Venator shard': 1 }),
+		tickRate: 1,
+		bankTimePerPotion: 0,
+		wesley: true
 	}
 ];
 

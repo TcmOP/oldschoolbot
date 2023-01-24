@@ -307,6 +307,69 @@ const killableBosses: KillableMonster[] = [
 		healAmountNeeded: 5 * 20,
 		attackStyleToUse: GearStat.AttackSlash,
 		attackStylesUsed: [GearStat.AttackSlash]
+	},
+	{
+		id: Monsters.PhantomMuspah.id,
+		name: Monsters.PhantomMuspah.name,
+		aliases: Monsters.PhantomMuspah.aliases,
+		timeToFinish: Time.Minute * 3.2,
+		table: Monsters.PhantomMuspah,
+		emoji: 'TODO:emoji',
+		wildy: false,
+
+		difficultyRating: 8, // TODO: difficulty
+		notifyDrops: resolveItems(['Ancient icon', 'Venator shard', 'Charged ice', 'Muphin']),
+		qpRequired: 75,
+		itemInBankBoosts: [
+			{
+				[itemID('Ranger boots')]: 2,
+				[itemID('Pegasian boots')]: 4
+			},
+			{
+				[itemID("Iban's staff")]: 1,
+				[itemID('Trident of the seas')]: 2,
+				[itemID('Trident of the swamp')]: 3,
+				[itemID('Sanguinesti staff')]: 4,
+				[itemID('Harmonised nightmare staff')]: 5
+			},
+			{
+				[itemID('Barrows gloves')]: 3
+			},
+			{
+				[itemID('Twisted bow')]: 5,
+				[itemID('Toxic blowpipe')]: 4,
+				[itemID('Bow of faerdhinen (c)')]: 3,
+				[itemID('Magic shortbow')]: 2
+			},
+			{
+				[itemID('Ancestral hat')]: 2
+			},
+			{
+				[itemID('Ancestral robe top')]: 2
+			},
+			{
+				[itemID('Ancestral robe bottom')]: 2
+			},
+			{
+				[itemID('Imbued heart')]: 3
+			}
+		],
+		levelRequirements: {
+			prayer: 43
+		},
+		healAmountNeeded: 20 * 7,
+		attackStyleToUse: GearStat.AttackRanged,
+		attackStylesUsed: [GearStat.AttackRanged, GearStat.AttackMagic],
+		minimumGearRequirements: {
+			mage: {
+				[GearStat.AttackMagic]: 50
+			},
+			range: {
+				[GearStat.AttackRanged]: 47
+			}
+		},
+		defaultAttackStyles: [SkillsEnum.Ranged, SkillsEnum.Magic],
+		disallowedAttackStyles: [SkillsEnum.Attack, SkillsEnum.Strength]
 	}
 ];
 

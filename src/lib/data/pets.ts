@@ -609,6 +609,15 @@ const pets: Pet[] = [
 		altNames: ['NEXLING'],
 		formatFinish: (num: number) =>
 			`You had to kill Nex ${fm(num)} times to get Nexling! <:Nexling:931565564151869460>`
+	},
+	{
+		id: 50,
+		emoji: 'TODO:emoji',
+		chance: 2500,
+		name: 'Muphin',
+		type: 'SPECIAL',
+		altNames: ['NEXLING'],
+		formatFinish: (num: number) => `You had to kill Phantom Muspah ${fm(num)} times to get Muphin! TODO:emoji`
 	}
 ];
 

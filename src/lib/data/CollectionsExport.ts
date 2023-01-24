@@ -2247,3 +2247,12 @@ export const NexCL = resolveItems([
 	'Torva platelegs (damaged)',
 	'Nihil shard'
 ]);
+
+export const PhantomMuspahCL = resolveItems([
+	'Ancient essence',
+	'Charged ice',
+	'Frozen cache',
+	'Ancient icon',
+	'Venator shard',
+	'Musphin'
+]);

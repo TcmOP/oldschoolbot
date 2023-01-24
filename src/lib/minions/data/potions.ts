@@ -257,6 +257,10 @@ const Potions = [
 	{
 		name: 'Ancient brew',
 		items: resolveItems(['Ancient brew(1)', 'Ancient brew(2)', 'Ancient brew(3)', 'Ancient brew(4)'])
+	},
+	{
+		name: 'Forgotton brew',
+		items: resolveItems(['Forgotton brew(1)', 'Forgotton brew(2)', 'Forgotton brew(3)', 'Forgotton brew(4)'])
 	}
 ];
 
