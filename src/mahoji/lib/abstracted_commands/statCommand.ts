@@ -248,7 +248,9 @@ FROM activity
 WHERE completed = true	
 AND user_id = ${BigInt(user.id)}
 OR (data->>'users')::jsonb @> ${wrap(user.id)}::jsonb
-GROUP BY type;`);
+GROUP BY type
+ORDER BY qty DESC
+LIMIT 20;`);
 			const dataPoints: [string, number][] = result.filter(i => i.qty >= 5).map(i => [i.type, i.qty]);
 			return makeResponseForBuffer(await barChart('Your Activity Types', val => `${val} Trips`, dataPoints));
 		}
@@ -263,7 +265,9 @@ FROM activity
 WHERE completed = true
 AND user_id = ${BigInt(user.id)}
 OR (data->>'users')::jsonb @> ${wrap(user.id)}::jsonb
-GROUP BY type;`);
+GROUP BY type
+ORDER BY hours DESC
+LIMIT 20;`);
 			const dataPoints: [string, number][] = result.filter(i => i.hours >= 1).map(i => [i.type, i.hours]);
 			const buffer = await barChart('Your Activity Durations', val => `${val} Hours`, dataPoints);
 			return makeResponseForBuffer(buffer);
