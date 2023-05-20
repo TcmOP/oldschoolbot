@@ -769,6 +769,14 @@ model HistoricalData {
 
   @@id([user_id, date])
   @@map("historical_data")
+
+model WikiDocs {
+  id        String   @db.VarChar(64)
+  name      String   @db.VarChar(124)
+  path      String   @db.VarChar(124) @id
+  body      String   @db.VarChar(5000)
+
+  @@map("wiki_docs")
 }
 
 enum command_usage_status {
