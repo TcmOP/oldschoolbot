@@ -805,6 +805,7 @@ model HistoricalData {
 
   @@id([user_id, date])
   @@map("historical_data")
+}
 
 model WikiDocs {
   id        String   @db.VarChar(64)
