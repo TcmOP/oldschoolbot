@@ -2,7 +2,7 @@ import { notEmpty, objectEntries, Time } from 'e';
 
 import { Emoji } from '../../../lib/constants';
 import { SkillsEnum } from '../../../lib/skilling/types';
-import { MinigameActivityTaskOptions } from '../../../lib/types/minions';
+import type { MinigameActivityTaskOptionsWithNoChanges } from '../../../lib/types/minions';
 import { formatDuration, formatSkillRequirements, hasSkillReqs } from '../../../lib/util';
 import addSubTaskToActivityTask from '../../../lib/util/addSubTaskToActivityTask';
 import { minionIsBusy } from '../../../lib/util/minionIsBusy';
@@ -21,7 +21,10 @@ const ironmanExtraReqs = {
 export async function tearsOfGuthixCommand(user: MUser, channelID: string) {
 	if (minionIsBusy(user.id)) return `${user.minionName} is busy.`;
 	const currentDate = new Date().getTime();
-	const lastPlayedDate = Number(user.user.lastTearsOfGuthixTimestamp);
+
+	const currentStats = await user.fetchStats({ last_tears_of_guthix_timestamp: true });
+
+	const lastPlayedDate = Number(currentStats.last_tears_of_guthix_timestamp);
 	const difference = currentDate - lastPlayedDate;
 
 	// If they have already claimed a ToG in the past 7days
@@ -73,7 +76,7 @@ export async function tearsOfGuthixCommand(user: MUser, channelID: string) {
 	duration += Time.Second * 0.6 * userQP;
 	if (duration > Time.Minute * 30) duration = Time.Minute * 30;
 
-	await addSubTaskToActivityTask<MinigameActivityTaskOptions>({
+	await addSubTaskToActivityTask<MinigameActivityTaskOptionsWithNoChanges>({
 		minigameID: 'tears_of_guthix',
 		userID: user.id,
 		channelID: channelID.toString(),

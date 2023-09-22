@@ -46,8 +46,6 @@ const minimumMageItems = [
 const minimumMageAttackStat = sumArr(minimumMageItems.map(i => i.equipment!.attack_magic));
 const minimumMageMagicDefenceStat = sumArr(minimumMageItems.map(i => i.equipment!.defence_magic)) - 10;
 
-const itemRequirements = new Bank().add('Rune pouch');
-
 function consumableCost({
 	projectile,
 	dart,
@@ -146,7 +144,9 @@ async function infernoRun({
 	const zukDeathChance = new PercentCounter(baseZukDeathChance(attempts), 'percent');
 	const preZukDeathChance = new PercentCounter(basePreZukDeathChance(attempts), 'percent');
 
-	if (!(user.user.sacrificedBank as ItemBank)[itemID('Fire cape')]) {
+	const { sacrificed_bank: sacrificedBank } = await user.fetchStats({ sacrificed_bank: true });
+
+	if (!(sacrificedBank as ItemBank)[itemID('Fire cape')]) {
 		return 'To do the Inferno, you must have sacrificed a fire cape.';
 	}
 
@@ -163,13 +163,15 @@ async function infernoRun({
 			.map(([name, lvl]) => `${lvl} ${name}`)
 			.join(', ')}.`;
 	}
+
 	/**
 	 *
 	 * Item Requirements
 	 *
 	 */
-	if (!user.owns(itemRequirements)) {
-		return `To do the Inferno, you need these items: ${itemRequirements}.`;
+	const itemRequirements = getSimilarItems(itemID('Rune pouch'));
+	if (itemRequirements.every(item => !user.owns(item))) {
+		return `To do the Inferno, you need one of these items: ${itemRequirements.map(itemNameFromID).join(', ')}.`;
 	}
 
 	/**
@@ -207,11 +209,15 @@ async function infernoRun({
 		return 'Your range gear is too bad! You die quickly.';
 	}
 
-	duration.add(
-		rangeGear.hasEquipped('Armadyl chestplate') && rangeGear.hasEquipped('Armadyl chainskirt'),
-		-3,
-		'Armadyl'
-	);
+	duration.add(rangeGear.hasEquipped('Masori body (f)') && rangeGear.hasEquipped('Masori chaps (f)'), -5, 'Masori');
+
+	if (!(rangeGear.hasEquipped('Masori body (f)') && rangeGear.hasEquipped('Masori chaps (f)'))) {
+		duration.add(
+			rangeGear.hasEquipped('Armadyl chestplate') && rangeGear.hasEquipped('Armadyl chainskirt'),
+			-3,
+			'Armadyl'
+		);
+	}
 
 	duration.add(
 		mageGear.hasEquipped('Ancestral robe top') && mageGear.hasEquipped('Ancestral robe bottom'),
@@ -330,7 +336,7 @@ async function infernoRun({
 		return 'You have no projectiles equipped in your range setup.';
 	}
 	const projectileType: ProjectileType = rangeGear.equippedWeapon()!.name === 'Twisted bow' ? 'arrow' : 'bolt';
-	const projectilesForTheirType = projectiles[projectileType];
+	const projectilesForTheirType = projectiles[projectileType].items;
 	if (!projectilesForTheirType.includes(projectile.item)) {
 		return `You're using incorrect projectiles, you're using a ${
 			rangeGear.equippedWeapon()!.name
@@ -387,8 +393,10 @@ async function infernoRun({
 }
 
 export async function infernoStatsCommand(user: MUser): CommandResponse {
-	const attempts = user.user.inferno_attempts;
-	const zukKC = await getMinigameScore(user.id, 'inferno');
+	const [zukKC, { inferno_attempts: attempts }] = await Promise.all([
+		getMinigameScore(user.id, 'inferno'),
+		user.fetchStats({ inferno_attempts: true })
+	]);
 
 	let str = 'You have never attempted the Inferno, I recommend you stay that way.';
 	if (attempts && !zukKC) {
@@ -422,9 +430,11 @@ export async function infernoStatsCommand(user: MUser): CommandResponse {
 }
 
 export async function infernoStartCommand(user: MUser, channelID: string): CommandResponse {
-	const attempts = user.user.inferno_attempts;
 	const usersRangeStats = user.gear.range.stats;
-	const zukKC = await getMinigameScore(user.id, 'inferno');
+	const [zukKC, { inferno_attempts: attempts }] = await Promise.all([
+		getMinigameScore(user.id, 'inferno'),
+		user.fetchStats({ inferno_attempts: true })
+	]);
 
 	const res = await infernoRun({
 		user,

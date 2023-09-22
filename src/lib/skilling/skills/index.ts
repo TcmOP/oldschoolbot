@@ -2,7 +2,7 @@ import { Emoji } from '../../constants';
 import { Skill, SkillsEnum } from '../types';
 import Agility from './agility';
 import Construction from './construction';
-import Cooking from './cooking';
+import Cooking from './cooking/cooking';
 import Crafting from './crafting';
 import Farming from './farming';
 import Firemaking from './firemaking';
@@ -73,7 +73,5 @@ export const Skills: Record<string, Skill> = {
 		name: 'Slayer'
 	}
 };
-
-export const skillsValues = Object.values(Skills);
 
 export default Skills;

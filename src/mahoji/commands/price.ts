@@ -1,10 +1,11 @@
-import { Embed } from '@discordjs/builders';
+import { EmbedBuilder } from '@discordjs/builders';
 import { CommandRunOptions } from 'mahoji';
 import { toKMB } from 'oldschooljs/dist/util';
 
 import { getItem } from '../../lib/util/getOSItem';
 import { itemOption } from '../lib/mahojiCommandOptions';
 import { OSBMahojiCommand } from '../lib/util';
+import { sellPriceOfItem } from './sell';
 
 export const priceCommand: OSBMahojiCommand = {
 	name: 'price',
@@ -20,9 +21,9 @@ export const priceCommand: OSBMahojiCommand = {
 		const item = getItem(options.item);
 		if (!item) return "Couldn't find that item.";
 
-		const priceOfItem = item.price;
+		const { basePrice: priceOfItem } = sellPriceOfItem(item);
 
-		const embed = new Embed()
+		const embed = new EmbedBuilder()
 			.setTitle(item.name)
 			.setColor(52_224)
 			.setThumbnail(

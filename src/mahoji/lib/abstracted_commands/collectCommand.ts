@@ -2,6 +2,7 @@ import { Time } from 'e';
 import { Bank } from 'oldschooljs';
 import { Item } from 'oldschooljs/dist/meta/types';
 
+import { userhasDiaryTier, WildernessDiary } from '../../../lib/diaries';
 import { SkillsEnum } from '../../../lib/skilling/types';
 import { Skills } from '../../../lib/types';
 import { CollectingOptions } from '../../../lib/types/minions';
@@ -55,12 +56,29 @@ export const collectables: Collectable[] = [
 		duration: Time.Minute * 1.68
 	},
 	{
+		item: getOSItem('Swamp toad'),
+		quantity: 28,
+		duration: Time.Minute * 1.68
+	},
+	{
 		item: getOSItem("Red spiders' eggs"),
 		quantity: 80,
 		itemCost: new Bank({
 			'Stamina potion(4)': 1
 		}),
 		duration: Time.Minute * 8.5
+	},
+	{
+		item: getOSItem('Wine of zamorak'),
+		quantity: 27,
+		itemCost: new Bank({
+			'Law rune': 27,
+			'Air rune': 27
+		}),
+		skillReqs: {
+			magic: 33
+		},
+		duration: Time.Minute * 3.12
 	},
 	{
 		item: getOSItem('White berries'),
@@ -136,7 +154,13 @@ export const collectables: Collectable[] = [
 	}
 ];
 
-export async function collectCommand(user: MUser, channelID: string, objectName: string, no_stams?: boolean) {
+export async function collectCommand(
+	user: MUser,
+	channelID: string,
+	objectName: string,
+	quantity?: number,
+	no_stams?: boolean
+) {
 	const collectable = collectables.find(c => stringMatches(c.item.name, objectName));
 	if (!collectable) {
 		return `That's not something your minion can collect, you can collect these things: ${collectables
@@ -157,12 +181,20 @@ export async function collectCommand(user: MUser, channelID: string, objectName:
 		}
 	}
 
+	if (collectable.item.id === 245) {
+		const [hasDiary] = await userhasDiaryTier(user, WildernessDiary.hard);
+		if (hasDiary) {
+			collectable.duration = Time.Minute * 2;
+		}
+	}
+
 	if (no_stams === undefined) {
 		no_stams = false;
 	}
 
-	const quantity = Math.floor(maxTripLength / collectable.duration);
-
+	if (!quantity) {
+		quantity = Math.floor(maxTripLength / collectable.duration);
+	}
 	let duration = collectable.duration * quantity;
 	if (duration > maxTripLength) {
 		return `${user.minionName} can't go on a trip longer than ${formatDuration(

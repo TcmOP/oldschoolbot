@@ -1,12 +1,22 @@
+import { randInt, Time } from 'e';
 import { Bank } from 'oldschooljs';
 
 import { Emoji, Events } from '../../lib/constants';
 import addSkillingClueToLoot from '../../lib/minions/functions/addSkillingClueToLoot';
 import Woodcutting from '../../lib/skilling/skills/woodcutting';
-import { SkillsEnum } from '../../lib/skilling/types';
+import { Log, SkillsEnum } from '../../lib/skilling/types';
 import { WoodcuttingActivityTaskOptions } from '../../lib/types/minions';
-import { roll, skillingPetDropRate } from '../../lib/util';
+import { perTimeUnitChance, roll, skillingPetDropRate } from '../../lib/util';
 import { handleTripFinish } from '../../lib/util/handleTripFinish';
+import resolveItems from '../../lib/util/resolveItems';
+
+function handleForestry({ log, duration, loot }: { log: Log; duration: number; loot: Bank }) {
+	if (resolveItems(['Redwood logs', 'Logs']).includes(log.id)) return;
+
+	perTimeUnitChance(duration, 20, Time.Minute, () => {
+		loot.add('Anima-infused bark', randInt(500, 1000));
+	});
+}
 
 export const woodcuttingTask: MinionTask = {
 	type: 'Woodcutting',
@@ -15,6 +25,8 @@ export const woodcuttingTask: MinionTask = {
 		const user = await mUserFetch(userID);
 
 		const log = Woodcutting.Logs.find(Log => Log.id === logID)!;
+
+		let strungRabbitFoot = user.hasEquipped('Strung rabbit foot');
 
 		let xpReceived = quantity * log.xp;
 		let bonusXP = 0;
@@ -48,6 +60,8 @@ export const woodcuttingTask: MinionTask = {
 
 		let loot = new Bank();
 
+		handleForestry({ log, duration, loot });
+
 		if (!powerchopping) {
 			if (log.lootTable) {
 				loot.add(log.lootTable.roll(quantity));
@@ -63,7 +77,8 @@ export const woodcuttingTask: MinionTask = {
 				quantity,
 				log.clueScrollChance,
 				loot,
-				log.clueNestsOnly
+				log.clueNestsOnly,
+				strungRabbitFoot
 			);
 		}
 
@@ -71,6 +86,10 @@ export const woodcuttingTask: MinionTask = {
 
 		if (bonusXP > 0) {
 			str += `. **Bonus XP:** ${bonusXP.toLocaleString()}`;
+		}
+
+		if (strungRabbitFoot && !log.clueNestsOnly) {
+			str += "\nYour strung rabbit foot necklace increases the chance of receiving bird's eggs and rings.";
 		}
 
 		// Roll for pet

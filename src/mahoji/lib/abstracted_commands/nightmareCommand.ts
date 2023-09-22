@@ -18,9 +18,9 @@ import resolveItems from '../../../lib/util/resolveItems';
 import { updateBankSetting } from '../../../lib/util/updateBankSetting';
 import { hasMonsterRequirements } from '../../mahojiSettings';
 
-function soloMessage(user: MUser, duration: number, quantity: number, isPhosani: boolean) {
+async function soloMessage(user: MUser, duration: number, quantity: number, isPhosani: boolean) {
 	const name = isPhosani ? "Phosani's Nightmare" : 'The Nightmare';
-	const kc = user.getKC(isPhosani ? PHOSANI_NIGHTMARE_ID : NightmareMonster.id);
+	const kc = await user.getKC(isPhosani ? PHOSANI_NIGHTMARE_ID : NightmareMonster.id);
 	let str = `${user.minionName} is now off to kill ${name} ${quantity} times.`;
 	if (kc < 5) {
 		str += ` They are terrified to face ${name}, and set off to fight it with great fear.`;
@@ -50,13 +50,18 @@ export const phosaniBISGear = new Gear({
 	hands: 'Ferocious gloves',
 	legs: "Inquisitor's plateskirt",
 	feet: 'Primordial boots',
-	ring: 'Berserker ring(i)',
+	ring: 'Ultor ring',
 	weapon: "Inquisitor's mace",
 	shield: 'Avernic defender',
 	ammo: "Rada's blessing 4"
 });
 
-function checkReqs(users: MUser[], monster: KillableMonster, quantity: number, isPhosani: boolean): string | undefined {
+async function checkReqs(
+	users: MUser[],
+	monster: KillableMonster,
+	quantity: number,
+	isPhosani: boolean
+): Promise<string | undefined> {
 	// Check if every user has the requirements for this monster.
 	for (const user of users) {
 		if (!user.user.minion_hasBought) {
@@ -97,7 +102,7 @@ function checkReqs(users: MUser[], monster: KillableMonster, quantity: number, i
 			if (!requirements[0]) {
 				return `${user.usernameOrMention} doesn't meet the requirements: ${requirements[1]}`;
 			}
-			if (user.getKC(NightmareMonster.id) < 50) {
+			if ((await user.getKC(NightmareMonster.id)) < 50) {
 				return "You need to have killed The Nightmare atleast 50 times before you can face the Phosani's Nightmare.";
 			}
 		}
@@ -128,14 +133,14 @@ export async function nightmareCommand(user: MUser, channelID: string, name: str
 		type = 'mass';
 	}
 
-	const err = checkReqs([user], NightmareMonster, 2, isPhosani);
+	const err = await checkReqs([user], NightmareMonster, 2, isPhosani);
 	if (err) return err;
 
 	const users = type === 'mass' ? [user, user, user, user] : [user];
 	const soloBoosts: string[] = [];
 
 	let effectiveTime = NightmareMonster.timeToFinish;
-	const [data] = getNightmareGearStats(
+	const [data] = await getNightmareGearStats(
 		user,
 		users.map(u => u.id),
 		isPhosani
@@ -200,7 +205,10 @@ export async function nightmareCommand(user: MUser, channelID: string, name: str
 			effectiveTime = reduceNumByPercent(effectiveTime, 3);
 			soloBoosts.push('3% for Dragon claws');
 		}
-		if (user.hasEquippedOrInBank('Harmonised nightmare staff')) {
+		if (user.hasEquippedOrInBank("Tumeken's shadow")) {
+			effectiveTime = reduceNumByPercent(effectiveTime, 6);
+			soloBoosts.push("6% for Tumeken's shadow");
+		} else if (user.hasEquippedOrInBank('Harmonised nightmare staff')) {
 			effectiveTime = reduceNumByPercent(effectiveTime, 3);
 			soloBoosts.push('3% for Harmonised nightmare staff');
 		}
@@ -220,7 +228,7 @@ export async function nightmareCommand(user: MUser, channelID: string, name: str
 	if (typeof durQtyRes === 'string') return durQtyRes;
 	let [quantity, duration, perKillTime] = durQtyRes;
 
-	const secondErr = checkReqs(users, NightmareMonster, quantity, isPhosani);
+	const secondErr = await checkReqs(users, NightmareMonster, quantity, isPhosani);
 	if (secondErr) return secondErr;
 
 	duration = quantity * perKillTime - NightmareMonster.respawnTime!;
@@ -276,7 +284,7 @@ export async function nightmareCommand(user: MUser, channelID: string, name: str
 
 	const str =
 		type === 'solo'
-			? `${soloMessage(user, duration, quantity, isPhosani)}
+			? `${await soloMessage(user, duration, quantity, isPhosani)}
 ${soloBoosts.length > 0 ? `**Boosts:** ${soloBoosts.join(', ')}` : ''}
 Removed ${soloFoodUsage} from your bank.`
 			: `${user.usernameOrMention}'s party of ${

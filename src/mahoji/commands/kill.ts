@@ -1,10 +1,10 @@
+import { toTitleCase } from '@oldschoolgg/toolkit';
 import { ApplicationCommandOptionType, CommandRunOptions } from 'mahoji';
 import { Bank, Monsters } from 'oldschooljs';
 
 import { PerkTier } from '../../lib/constants';
 import { deferInteraction } from '../../lib/util/interactionReply';
 import { makeBankImage } from '../../lib/util/makeBankImage';
-import { toTitleCase } from '../../lib/util/toTitleCase';
 import { Workers } from '../../lib/workers';
 import { OSBMahojiCommand } from '../lib/util';
 
@@ -70,14 +70,15 @@ export const killCommand: OSBMahojiCommand = {
 	],
 	run: async ({ options, userID, interaction }: CommandRunOptions<{ name: string; quantity: number }>) => {
 		const user = await mUserFetch(userID);
-		deferInteraction(interaction);
+		await deferInteraction(interaction);
 
 		const result = await Workers.kill({
 			quantity: options.quantity,
 			bossName: options.name,
 			limit: determineKillLimit(user),
 			catacombs: false,
-			onTask: false
+			onTask: false,
+			lootTableTertiaryChanges: Array.from(user.buildCATertiaryItemChanges().entries())
 		});
 
 		if (result.error) {

@@ -1,16 +1,21 @@
 import { Bank } from 'oldschooljs';
 
+import { BitField } from '../constants';
 import { Favours } from '../minions/data/kourendFavour';
 import { blisterwoodRequirements, ivandisRequirements } from '../minions/data/templeTrekking';
 import { SlayerTaskUnlocksEnum } from '../slayer/slayerUnlocks';
 import { ItemBank, Skills } from '../types';
-import { itemNameFromID } from '../util';
+import getOSItem from '../util/getOSItem';
 import itemID from '../util/itemID';
-import { chambersOfXericMetamorphPets } from './CollectionsExport';
+import { itemNameFromID } from '../util/smallUtils';
+import { chambersOfXericMetamorphPets, tobMetamorphPets } from './CollectionsExport';
 import { amrodCreatables } from './creatables/amrod';
 import { armorAndItemPacks } from './creatables/armorPacks';
+import { caCreatables } from './creatables/caCreatables';
 import { capeCreatables } from './creatables/capes';
 import { dragonFireShieldCreatables } from './creatables/dragonfireShields';
+import { dtCreatables } from './creatables/dt';
+import { forestryCreatables } from './creatables/forestryCreatables';
 import { gracefulOutfitCreatables } from './creatables/gracefulOutfits';
 import { guardiansOfTheRiftCreatables } from './creatables/guardiansOfTheRiftCreatables';
 import { leaguesCreatables } from './creatables/leagueCreatables';
@@ -18,7 +23,9 @@ import { lmsCreatables } from './creatables/lms';
 import { mysticStavesCreatables } from './creatables/mysticStaves';
 import { nexCreatables } from './creatables/nex';
 import { ornamentKits } from './creatables/ornaments';
+import { shadesOfMortonCreatables } from './creatables/shadesOfMorton';
 import { slayerCreatables } from './creatables/slayer';
+import { toaCreatables } from './creatables/toa';
 import { tobCreatables } from './creatables/tob';
 
 export interface Createable {
@@ -36,6 +43,70 @@ export interface Createable {
 	requiredFavour?: Favours;
 	maxCanOwn?: number;
 	onCreate?: (qty: number, user: MUser) => Promise<{ result: boolean; message: string }>;
+	type?: 'pack' | 'unpack';
+	customReq?: (user: MUser) => Promise<string | null>;
+}
+
+const bloodBarkPairs = [
+	['Bloodbark helm', 'Splitbark helm', 250, 79],
+	['Bloodbark body', 'Splitbark body', 500, 81],
+	['Bloodbark legs', 'Splitbark legs', 500, 81],
+	['Bloodbark boots', 'Splitbark boots', 100, 77],
+	['Bloodbark gauntlets', 'Splitbark gauntlets', 100, 77]
+] as const;
+
+const bloodBarkCreatables: Createable[] = [];
+
+for (const [bbPart, sbPart, bloodRunes, lvlReq] of bloodBarkPairs) {
+	const bbItem = getOSItem(bbPart);
+	const sbItem = getOSItem(sbPart);
+
+	bloodBarkCreatables.push({
+		name: bbItem.name,
+		inputItems: new Bank().add(sbItem.id).add('Blood rune', bloodRunes),
+		outputItems: new Bank().add(bbItem.id),
+		requiredSkills: {
+			runecraft: lvlReq
+		},
+		customReq: async (user: MUser) => {
+			if (!user.bitfield.includes(BitField.HasBloodbarkScroll)) {
+				return 'You need to have used a Runescroll of bloodbark to create this item!';
+			}
+
+			return null;
+		}
+	});
+}
+
+const swampBarkPairs = [
+	['Swampbark helm', 'Splitbark helm', 250, 46],
+	['Swampbark body', 'Splitbark body', 500, 48],
+	['Swampbark legs', 'Splitbark legs', 500, 48],
+	['Swampbark boots', 'Splitbark boots', 100, 42],
+	['Swampbark gauntlets', 'Splitbark gauntlets', 100, 42]
+] as const;
+
+const swampBarkCreatables: Createable[] = [];
+
+for (const [bbPart, sbPart, natRunes, lvlReq] of swampBarkPairs) {
+	const bbItem = getOSItem(bbPart);
+	const sbItem = getOSItem(sbPart);
+
+	swampBarkCreatables.push({
+		name: bbItem.name,
+		inputItems: new Bank().add(sbItem.id).add('Nature rune', natRunes),
+		outputItems: new Bank().add(bbItem.id),
+		requiredSkills: {
+			runecraft: lvlReq
+		},
+		customReq: async (user: MUser) => {
+			if (!user.bitfield.includes(BitField.HasSwampbarkScroll)) {
+				return 'You need to have used a Runescroll of Swampbark to create this item!';
+			}
+
+			return null;
+		}
+	});
 }
 
 const goldenProspectorCreatables: Createable[] = [
@@ -104,10 +175,10 @@ const revWeapons: Createable[] = [
 	}
 ];
 
-for (const [uWep, cWep] of [
-	["Viggora's chainmace (u)", "Viggora's chainmace"],
-	["Craw's bow (u)", "Craw's bow"],
-	["Thammaron's sceptre (u)", "Thammaron's sceptre"]
+for (const [uWep, cWep, uUPWep, cUPWep] of [
+	["Viggora's chainmace (u)", "Viggora's chainmace", 'Ursine chainmace (u)', 'Ursine chainmace'],
+	["Craw's bow (u)", "Craw's bow", 'Webweaver bow (u)', 'Webweaver bow'],
+	["Thammaron's sceptre (u)", "Thammaron's sceptre", 'Accursed sceptre (u)', 'Accursed sceptre']
 ]) {
 	revWeapons.push({
 		name: cWep,
@@ -130,6 +201,26 @@ for (const [uWep, cWep] of [
 		}
 	});
 	revWeapons.push({
+		name: cUPWep,
+		inputItems: {
+			[itemID('Revenant ether')]: 7000,
+			[itemID(uUPWep)]: 1
+		},
+		outputItems: {
+			[itemID(cUPWep)]: 1
+		}
+	});
+	revWeapons.push({
+		name: `Revert ${cUPWep.toLowerCase()}`,
+		inputItems: {
+			[itemID(cUPWep)]: 1
+		},
+		outputItems: {
+			[itemID('Revenant ether')]: 7000,
+			[itemID(uUPWep)]: 1
+		}
+	});
+	revWeapons.push({
 		name: `Revert ${uWep.toLowerCase()}`,
 		inputItems: {
 			[itemID(uWep)]: 1
@@ -144,6 +235,16 @@ const metamorphPetCreatables: Createable[] = chambersOfXericMetamorphPets.map(pe
 	name: itemNameFromID(pet)!,
 	inputItems: {
 		[itemID('Metamorphic dust')]: 1
+	},
+	outputItems: {
+		[pet]: 1
+	}
+}));
+
+const tobMetamorphPetCreatables: Createable[] = tobMetamorphPets.map(pet => ({
+	name: itemNameFromID(pet)!,
+	inputItems: {
+		[itemID('Sanguine dust')]: 1
 	},
 	outputItems: {
 		[pet]: 1
@@ -623,6 +724,26 @@ const Reverteables: Createable[] = [
 		},
 		outputItems: {
 			[itemID("Zulrah's scales")]: 20_000
+		},
+		noCl: true
+	},
+	{
+		name: 'Revert ancient icon',
+		inputItems: {
+			[itemID('Ancient icon')]: 1
+		},
+		outputItems: {
+			[itemID('Ancient essence')]: 5000
+		},
+		noCl: true
+	},
+	{
+		name: 'Revert venator shard',
+		inputItems: {
+			[itemID('Venator shard')]: 1
+		},
+		outputItems: {
+			[itemID('Ancient essence')]: 50_000
 		},
 		noCl: true
 	},
@@ -1206,6 +1327,16 @@ const Reverteables: Createable[] = [
 		outputItems: {
 			[itemID('Rift guardian')]: 1,
 			[itemID("Guardian's eye")]: 1
+		},
+		noCl: true
+	},
+	{
+		name: "Revert xeric's talisman (inert)",
+		inputItems: {
+			[itemID("Xeric's talisman (inert)")]: 1
+		},
+		outputItems: {
+			[itemID('Lizardman fang')]: 100
 		},
 		noCl: true
 	}
@@ -2111,12 +2242,90 @@ const Createables: Createable[] = [
 		}),
 		outputItems: new Bank().add('Celestial signet')
 	},
+	{
+		name: 'Eternal teleport crystal',
+		inputItems: new Bank({
+			'Enhanced crystal teleport seed': 1,
+			'Crystal shard': 100
+		}),
+		outputItems: new Bank({
+			'Eternal teleport crystal': 1
+		}),
+		requiredSkills: { smithing: 80, crafting: 80 },
+		QPRequired: 150
+	},
+	{
+		name: 'Saturated heart',
+		inputItems: new Bank({
+			'Imbued heart': 1,
+			'Ancient essence': 150_000
+		}),
+		outputItems: new Bank({
+			'Saturated heart': 1
+		})
+	},
+	{
+		name: 'Trident of the swamp',
+		inputItems: new Bank({
+			'Trident of the seas (full)': 1,
+			'Magic fang': 1
+		}),
+		outputItems: new Bank({
+			'Trident of the swamp': 1
+		})
+	},
+	{
+		name: 'Voidwaker',
+		inputItems: new Bank({
+			'Voidwaker blade': 1,
+			'Voidwaker hilt': 1,
+			'Voidwaker gem': 1,
+			Coins: 500_000
+		}),
+		outputItems: new Bank({
+			Voidwaker: 1
+		})
+	},
+	{
+		name: 'Accursed sceptre (u)',
+		inputItems: new Bank({
+			"Thammaron's sceptre (u)": 1,
+			"Skull of vet'ion": 1,
+			Coins: 500_000
+		}),
+		outputItems: new Bank({
+			'Accursed sceptre (u)': 1
+		})
+	},
+	{
+		name: 'Ursine chainmace (u)',
+		inputItems: new Bank({
+			"Viggora's chainmace (u)": 1,
+			'Claws of callisto': 1,
+			Coins: 500_000
+		}),
+		outputItems: new Bank({
+			'Ursine chainmace (u)': 1
+		})
+	},
+	{
+		name: 'Webweaver bow (u)',
+		inputItems: new Bank({
+			"Craw's bow (u)": 1,
+			'Fangs of venenatis': 1,
+			Coins: 500_000
+		}),
+		outputItems: new Bank({
+			'Webweaver bow (u)	': 1
+		})
+	},
 	...Reverteables,
 	...crystalTools,
 	...ornamentKits,
 	...hunterClothing,
 	...twistedAncestral,
 	...metamorphPetCreatables,
+	...tobMetamorphPetCreatables,
 	...metamorphPets,
 	...slayerCreatables,
 	...capeCreatables,
@@ -2131,7 +2340,14 @@ const Createables: Createable[] = [
 	...amrodCreatables,
 	...goldenProspectorCreatables,
 	...leaguesCreatables,
-	...guardiansOfTheRiftCreatables
+	...guardiansOfTheRiftCreatables,
+	...shadesOfMortonCreatables,
+	...toaCreatables,
+	...bloodBarkCreatables,
+	...swampBarkCreatables,
+	...dtCreatables,
+	...caCreatables,
+	...forestryCreatables
 ];
 
 export default Createables;

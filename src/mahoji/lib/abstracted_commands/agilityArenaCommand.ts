@@ -3,7 +3,7 @@ import { Bank } from 'oldschooljs';
 
 import { KaramjaDiary, userhasDiaryTier } from '../../../lib/diaries';
 import { SkillsEnum } from '../../../lib/skilling/types';
-import { MinigameActivityTaskOptions } from '../../../lib/types/minions';
+import type { MinigameActivityTaskOptionsWithNoChanges } from '../../../lib/types/minions';
 import { formatDuration, stringMatches } from '../../../lib/util';
 import addSubTaskToActivityTask from '../../../lib/util/addSubTaskToActivityTask';
 import { calcMaxTripLength } from '../../../lib/util/calcMaxTripLength';
@@ -44,7 +44,7 @@ const plainGraceful = new Bank({
 	'Graceful gloves': 1,
 	'Graceful boots': 1,
 	'Graceful cape': 1
-});
+}).freeze();
 
 const brimhavenGraceful = new Bank({
 	'Brimhaven graceful hood': 1,
@@ -53,7 +53,7 @@ const brimhavenGraceful = new Bank({
 	'Brimhaven graceful gloves': 1,
 	'Brimhaven graceful boots': 1,
 	'Brimhaven graceful cape': 1
-});
+}).freeze();
 
 export function determineXPFromTickets(qty: number, user: MUser, hasDiary: boolean) {
 	let baseXP = ticketQuantities[qty as keyof typeof ticketQuantities] ?? ticketQuantities[1000];
@@ -81,7 +81,7 @@ export async function agilityArenaCommand(user: MUser, channelID: string): Comma
 		boosts.push('10% extra tickets for Karamja Elite diary');
 	}
 
-	await addSubTaskToActivityTask<MinigameActivityTaskOptions>({
+	await addSubTaskToActivityTask<MinigameActivityTaskOptionsWithNoChanges>({
 		userID: user.id,
 		channelID: channelID.toString(),
 		duration,
@@ -124,8 +124,11 @@ export async function agilityArenaBuyCommand(user: MUser, input: string, qty = 1
 		if (amountTicketsHas < cost) {
 			return "You don't have enough Agility arena tickets.";
 		}
-		await user.removeItemsFromBank(new Bank().add('Agility arena ticket', cost));
-		await user.addItemsToBank({ items: { [buyable.item.id]: qty }, collectionLog: true });
+		await user.transactItems({
+			itemsToAdd: new Bank().add(buyable.item.id, qty),
+			itemsToRemove: new Bank().add('Agility arena ticket', cost),
+			collectionLog: true
+		});
 		return `Successfully purchased ${qty}x ${buyable.item.name} for ${cost}x Agility arena tickets.`;
 	}
 
@@ -134,7 +137,7 @@ export async function agilityArenaBuyCommand(user: MUser, input: string, qty = 1
 
 export async function agilityArenaRecolorCommand(user: MUser) {
 	const { bank } = user;
-	let cost = 250;
+	let ticketCost = 250;
 	if (!bank.has(plainGraceful)) {
 		return mahojiChatHead({
 			content: "Ye don't have a full set of Graceful in your bank for me to recolor!",
@@ -143,19 +146,21 @@ export async function agilityArenaRecolorCommand(user: MUser) {
 	}
 
 	const amountTicketsHas = bank.amount('Agility arena ticket');
-	if (amountTicketsHas < cost) {
+	if (amountTicketsHas < ticketCost) {
 		return mahojiChatHead({
-			content: `Ye don't have enough tickets, I charge ${cost} tickets for a recoloring.`,
+			content: `Ye don't have enough tickets, I charge ${ticketCost} tickets for a recoloring.`,
 			head: 'izzy'
 		});
 	}
-	bank.remove('Agility arena ticket', cost);
-	bank.remove(plainGraceful);
-	bank.add(brimhavenGraceful);
-	await user.update({
-		bank: bank.bank
+
+	const cost = new Bank().add('Agility arena ticket', ticketCost).add(plainGraceful);
+
+	await transactItems({
+		userID: user.id,
+		collectionLog: true,
+		itemsToAdd: brimhavenGraceful,
+		itemsToRemove: cost
 	});
-	await user.addItemsToCollectionLog(brimhavenGraceful);
 	return mahojiChatHead({
 		content: "I've recolored ye Graceful set, and taken your tickets!",
 		head: 'izzy'

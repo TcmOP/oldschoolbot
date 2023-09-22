@@ -1,23 +1,24 @@
 import { activity_type_enum } from '@prisma/client';
-import { AttachmentBuilder, ButtonBuilder, MessageCollector } from 'discord.js';
-import { shuffleArr } from 'e';
+import { AttachmentBuilder, ButtonBuilder, MessageCollector, MessageCreateOptions } from 'discord.js';
 import { Bank } from 'oldschooljs';
 
 import { calculateBirdhouseDetails } from '../../mahoji/lib/abstracted_commands/birdhousesCommand';
+import { canRunAutoContract } from '../../mahoji/lib/abstracted_commands/farmingContractCommand';
 import { handleTriggerShootingStar } from '../../mahoji/lib/abstracted_commands/shootingStarsCommand';
-import { updateGPTrackSetting, userStatsBankUpdate } from '../../mahoji/mahojiSettings';
+import { updateClientGPTrackSetting, userStatsBankUpdate } from '../../mahoji/mahojiSettings';
 import { ClueTiers } from '../clues/clueTiers';
+import { buildClueButtons } from '../clues/clueUtils';
+import { combatAchievementTripEffect } from '../combat_achievements/combatAchievements';
 import { BitField, COINS_ID, Emoji, PerkTier } from '../constants';
 import { handleGrowablePetGrowth } from '../growablePets';
 import { handlePassiveImplings } from '../implings';
 import { triggerRandomEvent } from '../randomEvents';
 import { getUsersCurrentSlayerInfo } from '../slayer/slayerUtil';
-import { ActivityTaskOptions } from '../types/minions';
+import { ActivityTaskData } from '../types/minions';
 import { channelIsSendable, makeComponents } from '../util';
 import {
 	makeAutoContractButton,
 	makeBirdHouseTripButton,
-	makeDoClueButton,
 	makeNewSlayerTaskButton,
 	makeOpenCasketButton,
 	makeOpenSeedPackButton,
@@ -34,17 +35,25 @@ const activitiesToTrackAsPVMGPSource: activity_type_enum[] = [
 	'ClueCompletion'
 ];
 
-const tripFinishEffects: {
+interface TripFinishEffectOptions {
+	data: ActivityTaskData;
+	user: MUser;
+	loot: Bank | null;
+	messages: string[];
+}
+export interface TripFinishEffect {
 	name: string;
-	fn: (options: { data: ActivityTaskOptions; user: MUser; loot: Bank | null; messages: string[] }) => unknown;
-}[] = [
+	fn: (options: TripFinishEffectOptions) => unknown;
+}
+
+const tripFinishEffects: TripFinishEffect[] = [
 	{
 		name: 'Track GP Analytics',
 		fn: ({ data, loot }) => {
 			if (loot && activitiesToTrackAsPVMGPSource.includes(data.type)) {
 				const GP = loot.amount(COINS_ID);
 				if (typeof GP === 'number') {
-					updateGPTrackSetting('gp_pvm', GP);
+					updateClientGPTrackSetting('gp_pvm', GP);
 				}
 			}
 		}
@@ -70,20 +79,29 @@ const tripFinishEffects: {
 	{
 		name: 'Random Events',
 		fn: async ({ data, messages, user }) => {
-			await triggerRandomEvent(user, data.duration, messages);
+			await triggerRandomEvent(user, data.type, data.duration, messages);
 		}
+	},
+	{
+		name: 'Combat Achievements',
+		fn: combatAchievementTripEffect
 	}
 ];
 
 export async function handleTripFinish(
 	user: MUser,
 	channelID: string,
-	message: string,
+	_message: string | ({ content: string } & MessageCreateOptions),
 	attachment: AttachmentBuilder | Buffer | undefined,
-	data: ActivityTaskOptions,
+	data: ActivityTaskData,
 	loot: Bank | null,
-	_messages?: string[]
+	_messages?: string[],
+	_components?: ButtonBuilder[]
 ) {
+	const message = typeof _message === 'string' ? { content: _message } : _message;
+	if (attachment) {
+		!message.files ? (message.files = [attachment]) : message.files.push(attachment);
+	}
 	const perkTier = user.perkTier();
 	const messages: string[] = [];
 	for (const effect of tripFinishEffects) await effect.fn({ data, user, loot, messages });
@@ -92,11 +110,13 @@ export async function handleTripFinish(
 
 	if (_messages) messages.push(..._messages);
 	if (messages.length > 0) {
-		message += `\n**Messages:** ${messages.join(', ')}`;
+		message.content += `\n**Messages:** ${messages.join(', ')}`;
 	}
 
 	if (clueReceived.length > 0 && perkTier < PerkTier.Two) {
-		clueReceived.map(clue => (message += `\n${Emoji.Casket} **You got a ${clue.name} clue scroll** in your loot.`));
+		clueReceived.map(
+			clue => (message.content += `\n${Emoji.Casket} **You got a ${clue.name} clue scroll** in your loot.`)
+		);
 	}
 
 	const existingCollector = collectors.get(user.id);
@@ -114,10 +134,14 @@ export async function handleTripFinish(
 	const casketReceived = loot ? ClueTiers.find(i => loot?.has(i.id)) : undefined;
 	if (casketReceived) components.push(makeOpenCasketButton(casketReceived));
 	if (perkTier > PerkTier.One) {
-		if (clueReceived.length > 0) clueReceived.map(clue => components.push(makeDoClueButton(clue)));
+		components.push(...buildClueButtons(loot, perkTier));
 		const birdHousedetails = await calculateBirdhouseDetails(user.id);
 		if (birdHousedetails.isReady && !user.bitfield.includes(BitField.DisableBirdhouseRunButton))
 			components.push(makeBirdHouseTripButton());
+
+		if ((await canRunAutoContract(user)) && !user.bitfield.includes(BitField.DisableAutoFarmContractButton))
+			components.push(makeAutoContractButton());
+
 		const { currentTask } = await getUsersCurrentSlayerInfo(user.id);
 		if (
 			(currentTask === null || currentTask.quantity_remaining <= 0) &&
@@ -126,16 +150,19 @@ export async function handleTripFinish(
 			components.push(makeNewSlayerTaskButton());
 		}
 		if (loot?.has('Seed pack')) {
-			components.push(makeAutoContractButton());
 			components.push(makeOpenSeedPackButton());
 		}
 	}
 
+	if (_components) {
+		components.push(..._components);
+	}
+
+	if (components.length > 0) {
+		message.components = makeComponents(components);
+	}
+
 	handleTriggerShootingStar(user, data, components);
 
-	sendToChannelID(channelID, {
-		content: message,
-		image: attachment,
-		components: components.length > 0 ? makeComponents(shuffleArr(components)) : undefined
-	});
+	sendToChannelID(channelID, message);
 }

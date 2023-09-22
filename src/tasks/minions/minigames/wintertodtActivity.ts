@@ -1,6 +1,6 @@
+import { SimpleTable } from '@oldschoolgg/toolkit';
 import { randInt } from 'e';
 import { Bank } from 'oldschooljs';
-import SimpleTable from 'oldschooljs/dist/structures/SimpleTable';
 
 import { Emoji, Events } from '../../../lib/constants';
 import { trackLoot } from '../../../lib/lootTrack';
@@ -48,14 +48,15 @@ export const wintertodtTask: MinionTask = {
 		let totalPoints = 0;
 
 		for (let i = 0; i < quantity; i++) {
-			const points = PointsTable.roll().item;
+			const points = PointsTable.rollOrThrow();
 			totalPoints += points;
 
 			loot.add(
 				WintertodtCrate.open({
 					points,
-					itemsOwned: user.allItemsOwned().clone().add(loot).bank,
-					skills: user.skillsAsXP
+					itemsOwned: user.allItemsOwned.clone().add(loot).bank,
+					skills: user.skillsAsXP,
+					firemakingXP: user.skillsAsXP.firemaking
 				})
 			);
 		}
@@ -116,8 +117,16 @@ export const wintertodtTask: MinionTask = {
 			}
 		}
 
-		xpStr += `, ${await user.addXP({ skillName: SkillsEnum.Woodcutting, amount: wcXpToGive })}`;
-		xpStr += `, ${await user.addXP({ skillName: SkillsEnum.Firemaking, amount: fmXpToGive })}`;
+		xpStr += `, ${await user.addXP({
+			skillName: SkillsEnum.Woodcutting,
+			amount: wcXpToGive,
+			source: 'Wintertodt'
+		})}`;
+		xpStr += `, ${await user.addXP({
+			skillName: SkillsEnum.Firemaking,
+			amount: fmXpToGive,
+			source: 'Wintertodt'
+		})}`;
 		const newLevel = user.skillLevel(SkillsEnum.Firemaking);
 
 		const { itemsAdded, previousCL } = await transactItems({

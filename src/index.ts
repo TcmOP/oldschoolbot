@@ -3,18 +3,22 @@ import './lib/data/itemAliases';
 import './lib/crons';
 import './lib/MUser';
 import './lib/util/transactItemsFromBank';
+import './lib/util/logger';
+import './lib/data/trophies';
+import './lib/itemMods';
 
 import * as Sentry from '@sentry/node';
 import { Chart } from 'chart.js';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
 import { GatewayIntentBits, Options, Partials, TextChannel } from 'discord.js';
-import { isObject, Time } from 'e';
+import { isObject } from 'e';
 import { MahojiClient } from 'mahoji';
 import { join } from 'path';
+import { isMainThread } from 'worker_threads';
 
-import { botToken, CLIENT_ID, DEV_SERVER_ID, production, SENTRY_DSN, SupportServer } from './config';
+import { botToken, DEV_SERVER_ID, production, SENTRY_DSN, SupportServer } from './config';
 import { BLACKLISTED_GUILDS, BLACKLISTED_USERS } from './lib/blacklists';
-import { Channel, Events } from './lib/constants';
+import { Channel, Events, globalConfig, META_CONSTANTS } from './lib/constants';
 import { onMessage } from './lib/events';
 import { makeServer } from './lib/http';
 import { modalInteractionHook } from './lib/modals';
@@ -25,7 +29,6 @@ import { assert, runTimedLoggedFn } from './lib/util';
 import { CACHED_ACTIVE_USER_IDS, syncActiveUserIDs } from './lib/util/cachedUserIDs';
 import { interactionHook } from './lib/util/globalInteractions';
 import { handleInteractionError } from './lib/util/interactionReply';
-import { startLog } from './lib/util/log';
 import { logError } from './lib/util/logError';
 import { sendToChannelID } from './lib/util/webhook';
 import { onStartup } from './mahoji/lib/events';
@@ -33,11 +36,16 @@ import { postCommand } from './mahoji/lib/postCommand';
 import { preCommand } from './mahoji/lib/preCommand';
 import { convertMahojiCommandToAbstractCommand } from './mahoji/lib/util';
 
+debugLog(`Starting... Git Hash ${META_CONSTANTS.GIT_HASH}`);
+
+if (production && !process.env.TEST && isMainThread) {
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	require('segfault-handler').registerHandler('crash.log');
+}
+
 if (!production) {
 	import('./lib/devHotReload');
 }
-
-startLog();
 
 Chart.register(ChartDataLabels);
 
@@ -85,11 +93,11 @@ const client = new OldSchoolBotClient({
 	}),
 	sweepers: {
 		guildMembers: {
-			interval: Time.Minute * 15,
+			interval: 60 * 60,
 			filter: () => member => !CACHED_ACTIVE_USER_IDS.has(member.user.id)
 		},
 		users: {
-			interval: Time.Minute * 15,
+			interval: 60 * 60,
 			filter: () => user => !CACHED_ACTIVE_USER_IDS.has(user.id)
 		}
 	}
@@ -97,17 +105,18 @@ const client = new OldSchoolBotClient({
 
 export const mahojiClient = new MahojiClient({
 	developmentServerID: DEV_SERVER_ID,
-	applicationID: CLIENT_ID,
+	applicationID: globalConfig.clientID,
 	storeDirs: [join('dist', 'mahoji')],
 	handlers: {
-		preCommand: async ({ command, interaction }) => {
+		preCommand: async ({ command, interaction, options }) => {
 			const result = await preCommand({
 				abstractCommand: convertMahojiCommandToAbstractCommand(command),
 				userID: interaction.user.id,
 				guildID: interaction.guildId,
 				channelID: interaction.channelId,
 				bypassInhibitors: false,
-				apiUser: interaction.user
+				apiUser: interaction.user,
+				options
 			});
 			return result;
 		},
@@ -120,7 +129,8 @@ export const mahojiClient = new MahojiClient({
 				args: options,
 				error,
 				isContinue: false,
-				inhibited
+				inhibited,
+				continueDeltaMillis: null
 			})
 	},
 	djsClient: client
@@ -139,14 +149,16 @@ declare global {
 
 client.mahojiClient = mahojiClient;
 global.globalClient = client;
-client.on('messageCreate', onMessage);
+client.on('messageCreate', msg => {
+	onMessage(msg);
+});
 client.on('interactionCreate', async interaction => {
 	if (BLACKLISTED_USERS.has(interaction.user.id)) return;
 	if (interaction.guildId && BLACKLISTED_GUILDS.has(interaction.guildId)) return;
 
 	if (!client.isReady()) {
 		if (interaction.isChatInputCommand()) {
-			interaction.reply({
+			await interaction.reply({
 				content:
 					'Old School Bot is currently down for maintenance/updates, please try again in a couple minutes! Thank you <3',
 				ephemeral: true
@@ -165,10 +177,10 @@ client.on('interactionCreate', async interaction => {
 		const result = await mahojiClient.parseInteraction(interaction);
 		if (result === null) return;
 		if (isObject(result) && 'error' in result) {
-			handleInteractionError(result.error, interaction);
+			await handleInteractionError(result.error, interaction);
 		}
 	} catch (err) {
-		handleInteractionError(err, interaction);
+		await handleInteractionError(err, interaction);
 	}
 });
 
@@ -195,18 +207,37 @@ client.on('guildCreate', guild => {
 	}
 });
 
+client.on('shardDisconnect', ({ wasClean, code, reason }) => debugLog('Shard Disconnect', { wasClean, code, reason }));
+client.on('shardError', err => debugLog('Shard Error', { error: err.message }));
+client.once('ready', () => runTimedLoggedFn('OnStartup', async () => onStartup()));
+
 async function main() {
-	client.fastifyServer = makeServer();
-	runTimedLoggedFn('Sync Active User IDs', syncActiveUserIDs);
-	runTimedLoggedFn('Sync Activity Cache', syncActivityCache);
+	if (process.env.TEST) return;
+	client.fastifyServer = await makeServer();
+	await Promise.all([
+		runTimedLoggedFn('Sync Active User IDs', syncActiveUserIDs),
+		runTimedLoggedFn('Sync Activity Cache', syncActivityCache)
+	]);
 	await Promise.all([
 		runTimedLoggedFn('Start Mahoji Client', async () => mahojiClient.start()),
 		runTimedLoggedFn('Startup Scripts', runStartupScripts)
 	]);
+
 	await runTimedLoggedFn('Log In', () => client.login(botToken));
-	runTimedLoggedFn('OnStartup', async () => onStartup());
 }
 
-process.on('uncaughtException', logError);
+process.on('uncaughtException', err => {
+	console.error(err);
+	logError(err);
+});
+
+process.on('unhandledRejection', err => {
+	console.error(err);
+	logError(err);
+});
+
+process.on('exit', exitCode => {
+	debugLog('Process Exit', { type: 'PROCESS_EXIT', exitCode });
+});
 
 main();

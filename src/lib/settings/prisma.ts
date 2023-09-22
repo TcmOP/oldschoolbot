@@ -1,6 +1,6 @@
 import { Activity, activity_type_enum, Prisma, PrismaClient } from '@prisma/client';
 
-import { CLIENT_ID, production } from '../../config';
+import { production } from '../../config';
 import { ActivityTaskData } from '../types/minions';
 
 declare global {
@@ -10,9 +10,10 @@ declare global {
 		}
 	}
 }
-export const prisma =
-	global.prisma ||
-	new PrismaClient({
+
+function makePrismaClient(): PrismaClient {
+	if (!production && !process.env.TEST) console.log('Making prisma client...');
+	return new PrismaClient({
 		log: [
 			{
 				emit: 'event',
@@ -20,7 +21,10 @@ export const prisma =
 			}
 		]
 	});
-if (process.env.NODE_ENV !== 'production') global.prisma = prisma;
+}
+
+export const prisma = global.prisma || makePrismaClient();
+global.prisma = prisma;
 
 export const prismaQueries: Prisma.QueryEvent[] = [];
 export let queryCountStore = { value: 0 };
@@ -41,7 +45,7 @@ export function convertStoredActivityToFlatActivity(activity: Activity): Activit
 		duration: activity.duration,
 		finishDate: activity.finish_date.getTime(),
 		id: activity.id
-	};
+	} as ActivityTaskData;
 }
 
 /**
@@ -60,27 +64,18 @@ export async function countUsersWithItemInCl(itemID: number, ironmenOnly: boolea
 	return result;
 }
 
-export async function addToGPTaxBalance(userID: string | string, amount: number) {
-	await Promise.all([
-		prisma.clientStorage.update({
-			where: {
-				id: CLIENT_ID
-			},
-			data: {
-				gp_tax_balance: {
-					increment: amount
-				}
-			}
-		}),
-		prisma.user.update({
-			where: {
-				id: userID.toString()
-			},
-			data: {
-				total_gp_traded: {
-					increment: amount
-				}
-			}
-		})
-	]);
+export async function getUsersActivityCounts(user: MUser) {
+	const counts = await prisma.$queryRaw<{ type: activity_type_enum; count: bigint }[]>`SELECT type, COUNT(type)
+FROM activity
+WHERE user_id = ${BigInt(user.id)}
+GROUP BY type;`;
+
+	let result: Record<activity_type_enum, number> = {} as Record<activity_type_enum, number>;
+	for (const type of Object.values(activity_type_enum)) {
+		result[type] = 0;
+	}
+	for (const { count, type } of counts) {
+		result[type] = Number(count);
+	}
+	return result;
 }

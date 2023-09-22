@@ -1,11 +1,53 @@
-import { Stopwatch } from '@sapphire/stopwatch';
+import { formatOrdinal, roboChimpCLRankQuery } from '@oldschoolgg/toolkit';
+import { roll, sumArr } from 'e';
 import { Bank } from 'oldschooljs';
 
 import { Events } from './constants';
-import { allCLItems, allCollectionLogsFlat } from './data/Collections';
+import { allCLItems, allCollectionLogsFlat, calcCLDetails } from './data/Collections';
+import { calculateOwnCLRanking, roboChimpSyncData } from './roboChimp';
+import { prisma } from './settings/prisma';
+import { fetchStatsForCL } from './util';
 import { fetchCLLeaderboard } from './util/clLeaderboard';
-import { formatOrdinal } from './util/formatOrdinal';
-import { log } from './util/log';
+
+export async function createHistoricalData(user: MUser) {
+	const clStats = calcCLDetails(user);
+	const clRank = await roboChimpClient.$queryRawUnsafe<{ count: number }[]>(roboChimpCLRankQuery(BigInt(user.id)));
+
+	return {
+		user_id: user.id,
+		GP: user.GP,
+		total_xp: sumArr(Object.values(user.skillsAsXP)),
+		cl_completion_percentage: clStats.percent,
+		cl_completion_count: clStats.owned.length,
+		cl_global_rank: Number(clRank[0].count)
+	};
+}
+
+export async function clArrayUpdate(user: MUser, newCL: Bank) {
+	const id = BigInt(user.id);
+	const newCLArray = Object.keys(newCL.bank).map(i => Number(i));
+	const updateObj = {
+		cl_array: newCLArray,
+		cl_array_length: newCLArray.length
+	} as const;
+
+	await prisma.userStats.upsert({
+		where: {
+			user_id: id
+		},
+		create: {
+			user_id: id,
+			...updateObj
+		},
+		update: {
+			...updateObj
+		}
+	});
+
+	return {
+		newCLArray
+	};
+}
 
 export async function handleNewCLItems({
 	itemsAdded,
@@ -21,8 +63,38 @@ export async function handleNewCLItems({
 	const newCLItems = itemsAdded
 		?.clone()
 		.filter(i => !previousCL.has(i.id) && newCL.has(i.id) && allCLItems.includes(i.id));
-	if (!newCLItems || newCLItems.length === 0) {
-		return;
+
+	const didGetNewCLItem = newCLItems && newCLItems.length > 0;
+	if (didGetNewCLItem || roll(30)) {
+		await prisma.historicalData.create({ data: await createHistoricalData(user) });
+	}
+
+	if (!didGetNewCLItem) return;
+
+	const previousCLDetails = calcCLDetails(previousCL);
+	const previousCLRank = previousCLDetails.percent >= 80 ? await calculateOwnCLRanking(user.id) : null;
+
+	await Promise.all([roboChimpSyncData(user), clArrayUpdate(user, newCL)]);
+	const newCLRank = previousCLDetails.percent >= 80 ? await calculateOwnCLRanking(user.id) : null;
+
+	const newCLDetails = calcCLDetails(newCL);
+
+	let newCLPercentMessage: string | null = null;
+
+	const milestonePercentages = [25, 50, 70, 80, 90, 95, 100];
+	for (const milestone of milestonePercentages) {
+		if (previousCLDetails.percent < milestone && newCLDetails.percent >= milestone) {
+			newCLPercentMessage = `${user} just reached ${milestone}% Collection Log completion, after receiving ${newCLItems}!`;
+
+			if (previousCLRank !== newCLRank && newCLRank !== null && previousCLRank !== null) {
+				newCLPercentMessage += ` In the overall CL leaderboard, they went from rank ${previousCLRank} to rank ${newCLRank}.`;
+			}
+		}
+		break;
+	}
+
+	if (newCLPercentMessage) {
+		globalClient.emit(Events.ServerNotification, newCLPercentMessage);
 	}
 
 	const clsWithTheseItems = allCollectionLogsFlat.filter(
@@ -34,22 +106,24 @@ export async function handleNewCLItems({
 		return cl.items.some(item => !previousCL.has(item)) && cl.items.every(item => newCL.has(item));
 	});
 
-	if (newlyCompletedCLs.length === 0) return;
-
 	for (const finishedCL of newlyCompletedCLs) {
 		const kcString = finishedCL.fmtProg
-			? `They finished after... ${finishedCL.fmtProg({
+			? `They finished after... ${await finishedCL.fmtProg({
 					getKC: (id: number) => user.getKC(id),
 					user,
-					minigames: await user.fetchMinigames()
+					minigames: await user.fetchMinigames(),
+					stats: await fetchStatsForCL(user)
 			  })}!`
 			: '';
 
-		const stopwatch = new Stopwatch();
 		const nthUser = (
-			await fetchCLLeaderboard({ ironmenOnly: false, items: finishedCL.items, resultLimit: 100_000 })
+			await fetchCLLeaderboard({
+				ironmenOnly: false,
+				items: finishedCL.items,
+				resultLimit: 100_000,
+				method: 'raw_cl'
+			})
 		).length;
-		log(`Took ${stopwatch.stop()} to calc cl leaderboard for ${finishedCL.name}`);
 
 		const placeStr = nthUser > 100 ? '' : ` They are the ${formatOrdinal(nthUser)} user to finish this CL.`;
 

@@ -19,7 +19,7 @@ export function calcMaxTripLength(user: MUser, activity?: activity_type_enum) {
 
 	switch (activity) {
 		case 'Fishing':
-			if (user.allItemsOwned().has('Fish sack barrel') || user.allItemsOwned().has('Fish barrel')) {
+			if (user.allItemsOwned.has('Fish sack barrel') || user.allItemsOwned.has('Fish barrel')) {
 				max += Time.Minute * 9;
 			}
 			break;
@@ -32,6 +32,7 @@ export function calcMaxTripLength(user: MUser, activity?: activity_type_enum) {
 		case 'AnimatedArmour':
 		case 'Sepulchre':
 		case 'Raids':
+		case 'TheatreOfBlood':
 		case 'Pickpocket':
 		case 'SoulWars':
 		case 'Cyclops': {
@@ -42,6 +43,10 @@ export function calcMaxTripLength(user: MUser, activity?: activity_type_enum) {
 		}
 		case 'Alching': {
 			max *= 2;
+			break;
+		}
+		case 'NightmareZone': {
+			max *= 3;
 			break;
 		}
 		default: {

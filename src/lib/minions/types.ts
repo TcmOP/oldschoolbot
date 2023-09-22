@@ -1,13 +1,18 @@
+import { Image } from '@napi-rs/canvas';
+import { XpGainSource } from '@prisma/client';
 import { Bank, MonsterKillOptions } from 'oldschooljs';
 import SimpleMonster from 'oldschooljs/dist/structures/SimpleMonster';
-import { Image } from 'skia-canvas/lib';
 
+import { QuestID } from '../../mahoji/lib/abstracted_commands/questCommand';
+import { ClueTier } from '../clues/clueTiers';
 import { BitField, PerkTier } from '../constants';
+import { Diary, DiaryTier } from '../diaries';
 import { GearSetupType, GearStat, OffenceGearStat } from '../gear/types';
 import { POHBoosts } from '../poh';
 import { LevelRequirements, SkillsEnum } from '../skilling/types';
 import { ArrayItemsResolved, ItemBank, Skills } from '../types';
 import { MonsterActivityTaskOptions } from '../types/minions';
+import { calculateSimpleMonsterDeathChance } from '../util';
 import { AttackStyles } from './functions';
 
 export type BankBackground = {
@@ -24,6 +29,7 @@ export type BankBackground = {
 	sacValueRequired?: number;
 	skillsNeeded?: Skills;
 	transparent?: true;
+	alternateImages?: { id: number }[];
 } & (
 	| {
 			hasPurple: true;
@@ -46,12 +52,21 @@ export interface KillableMonster {
 		kill(quantity: number, options: MonsterKillOptions): Bank;
 	};
 	emoji?: string;
+
+	/**
+	 * Wilderness variables.
+	 */
 	wildy?: boolean;
-	difficultyRating?: number;
+	wildyMulti?: boolean;
+	canBePked?: boolean;
+	pkActivityRating?: number;
+	pkBaseDeathChance?: number;
+
 	itemsRequired?: ArrayItemsResolved;
 	notifyDrops?: ArrayItemsResolved;
 	existsInCatacombs?: boolean;
 	qpRequired?: number;
+	difficultyRating?: number;
 
 	/**
 	 * An array of objects of ([key: itemID]: boostPercentage) boosts that apply to
@@ -87,6 +102,7 @@ export interface KillableMonster {
 	itemCost?: Consumable;
 	superior?: SimpleMonster;
 	slayerOnly?: boolean;
+	canChinning?: boolean;
 	canBarrage?: boolean;
 	canCannon?: boolean;
 	cannonMulti?: boolean;
@@ -99,6 +115,22 @@ export interface KillableMonster {
 		loot: Bank;
 		data: MonsterActivityTaskOptions;
 	}) => Promise<unknown>;
+	degradeableItemUsage?: {
+		required: boolean;
+		gearSetup: GearSetupType;
+		items: { boostPercent: number; itemID: number }[];
+	}[];
+	projectileUsage?: {
+		required: boolean;
+		calculateQuantity: (opts: { quantity: number }) => number;
+	};
+	equippedItemBoosts?: {
+		gearSetup: GearSetupType;
+		items: { boostPercent: number; itemID: number }[];
+	}[];
+	requiredQuests?: QuestID[];
+	deathProps?: Omit<Parameters<typeof calculateSimpleMonsterDeathChance>['0'], 'currentKC'>;
+	diaryRequirement?: [Diary, DiaryTier];
 }
 /*
  * Monsters will have an array of Consumables
@@ -121,6 +153,7 @@ export interface AddXpParams {
 	multiplier?: boolean;
 	minimal?: boolean;
 	artificial?: boolean;
+	source?: XpGainSource;
 }
 
 export interface AddMonsterXpParams {
@@ -137,7 +170,7 @@ export interface AddMonsterXpParams {
 }
 
 export interface ResolveAttackStylesParams {
-	monsterID: number;
+	monsterID: number | undefined;
 	boostMethod?: string;
 }
 
@@ -148,3 +181,4 @@ export interface BlowpipeData {
 }
 export type Flags = Record<string, string | number>;
 export type FlagMap = Map<string, string | number>;
+export type ClueBank = Record<ClueTier['name'], number>;

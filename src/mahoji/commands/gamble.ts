@@ -3,6 +3,9 @@ import { ApplicationCommandOptionType, CommandRunOptions } from 'mahoji';
 import { MahojiUserOption } from 'mahoji/dist/lib/types';
 import { Bank } from 'oldschooljs';
 
+import { BitField } from '../../lib/constants';
+import { prisma } from '../../lib/settings/prisma';
+import { handleMahojiConfirmation } from '../../lib/util/handleMahojiConfirmation';
 import itemIsTradeable from '../../lib/util/itemIsTradeable';
 import { capeGambleCommand, capeGambleStatsCommand } from '../lib/abstracted_commands/capegamble';
 import { diceCommand } from '../lib/abstracted_commands/diceCommand';
@@ -11,7 +14,6 @@ import { hotColdCommand } from '../lib/abstracted_commands/hotColdCommand';
 import { luckyPickCommand } from '../lib/abstracted_commands/luckyPickCommand';
 import { slotsCommand } from '../lib/abstracted_commands/slotsCommand';
 import { OSBMahojiCommand } from '../lib/util';
-import { handleMahojiConfirmation, mahojiUsersSettingsFetch } from '../mahojiSettings';
 
 export const gambleCommand: OSBMahojiCommand = {
 	name: 'gamble',
@@ -36,6 +38,12 @@ export const gambleCommand: OSBMahojiCommand = {
 						{ name: 'fire', value: 'fire' },
 						{ name: 'infernal', value: 'infernal' }
 					]
+				},
+				{
+					type: ApplicationCommandOptionType.Boolean,
+					name: 'autoconfirm',
+					description: "Don't ask confirmation message",
+					required: false
 				}
 			]
 		},
@@ -164,9 +172,10 @@ export const gambleCommand: OSBMahojiCommand = {
 	run: async ({
 		options,
 		interaction,
+		guildID,
 		userID
 	}: CommandRunOptions<{
-		cape?: { type?: string };
+		cape?: { type?: string; autoconfirm?: boolean };
 		dice?: { amount?: string };
 		duel?: { user: MahojiUserOption; amount?: string };
 		lucky_pick?: { amount: string };
@@ -178,23 +187,30 @@ export const gambleCommand: OSBMahojiCommand = {
 
 		if (options.cape) {
 			if (options.cape.type) {
-				return capeGambleCommand(user, options.cape.type, interaction);
+				return capeGambleCommand(user, options.cape.type, interaction, options.cape.autoconfirm);
 			}
 			return capeGambleStatsCommand(user);
 		}
 
+		if (options.duel) {
+			const targetUser = await mUserFetch(options.duel.user.user.id);
+			// Block duels when one user has the BitField set, but only when wagering an amount
+			if (options.duel.amount && [user, targetUser].some(u => u.bitfield.includes(BitField.SelfGamblingLocked))) {
+				return 'One of you has gambling disabled and cannot participate in this duel!';
+			}
+			return duelCommand(user, interaction, targetUser, options.duel.user, options.duel.amount);
+		}
+
 		if (options.dice) {
+			if (user.bitfield.includes(BitField.SelfGamblingLocked) && options.dice.amount) {
+				return 'You have gambling disabled and cannot gamble!';
+			}
 			return diceCommand(user, interaction, options.dice.amount);
 		}
 
-		if (options.duel) {
-			return duelCommand(
-				user,
-				interaction,
-				await mUserFetch(options.duel.user.user.id),
-				options.duel.user,
-				options.duel.amount
-			);
+		// Block GP Gambling from users with the BitField set:
+		if (user.bitfield.includes(BitField.SelfGamblingLocked)) {
+			return 'You have gambling disabled and cannot gamble!';
 		}
 
 		if (options.lucky_pick) {
@@ -204,8 +220,6 @@ export const gambleCommand: OSBMahojiCommand = {
 		if (options.slots) {
 			return slotsCommand(interaction, user, options.slots.amount);
 		}
-
-		const mahojiUser = await mahojiUsersSettingsFetch(user.id);
 
 		if (options.hot_cold) {
 			return hotColdCommand(interaction, user, options.hot_cold.choice, options.hot_cold.amount);
@@ -226,10 +240,11 @@ export const gambleCommand: OSBMahojiCommand = {
 				`Are you sure you want to give a random stack of items from your bank to ${recipientuser.usernameOrMention}? Untradeable and favorited items are not included.`
 			);
 
+			await senderUser.sync();
 			const bank = senderUser.bank
 				.items()
 				.filter(i => itemIsTradeable(i[0].id))
-				.filter(i => !mahojiUser.favoriteItems.includes(i[0].id));
+				.filter(i => !user.user.favoriteItems.includes(i[0].id));
 			const entry = randArrItem(bank);
 			if (!entry) return 'You have no items you can give away!';
 			const [item, qty] = entry;
@@ -241,6 +256,16 @@ export const gambleCommand: OSBMahojiCommand = {
 				itemsToAdd: loot,
 				collectionLog: false,
 				filterLoot: false
+			});
+			await prisma.economyTransaction.create({
+				data: {
+					guild_id: guildID ? BigInt(guildID) : undefined,
+					sender: BigInt(senderUser.id),
+					recipient: BigInt(recipientuser.id),
+					items_sent: loot.bank,
+					items_received: undefined,
+					type: 'gri'
+				}
 			});
 			let debug = new Bank();
 			for (const t of bank) debug.add(t[0].id);

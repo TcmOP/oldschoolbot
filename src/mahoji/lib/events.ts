@@ -1,36 +1,40 @@
 import { bulkUpdateCommands } from 'mahoji/dist/lib/util';
 import { ItemBank } from 'oldschooljs/dist/meta/types';
 
-import { CLIENT_ID, DEV_SERVER_ID, production } from '../../config';
+import { DEV_SERVER_ID, production } from '../../config';
 import { cacheBadges } from '../../lib/badges';
 import { syncBlacklists } from '../../lib/blacklists';
-import { DISABLED_COMMANDS } from '../../lib/constants';
+import { Channel, DISABLED_COMMANDS, globalConfig, META_CONSTANTS } from '../../lib/constants';
 import { initCrons } from '../../lib/crons';
+import { GrandExchange } from '../../lib/grandExchange';
 import { prisma } from '../../lib/settings/prisma';
 import { initTickers } from '../../lib/tickers';
-import { cacheCleanup, runTimedLoggedFn } from '../../lib/util';
+import { runTimedLoggedFn } from '../../lib/util';
+import { cacheCleanup } from '../../lib/util/cachedUserIDs';
 import { mahojiClientSettingsFetch } from '../../lib/util/clientSettings';
 import { syncLinkedAccounts } from '../../lib/util/linkedAccountsUtil';
-import { log } from '../../lib/util/log';
+import { sendToChannelID } from '../../lib/util/webhook';
 import { cacheUsernames } from '../commands/leaderboard';
 import { CUSTOM_PRICE_CACHE } from '../commands/sell';
 
 export async function syncCustomPrices() {
-	const clientData = await mahojiClientSettingsFetch();
+	const clientData = await mahojiClientSettingsFetch({ custom_prices: true });
 	for (const [key, value] of Object.entries(clientData.custom_prices as ItemBank)) {
 		CUSTOM_PRICE_CACHE.set(Number(key), Number(value));
 	}
 }
 
 export async function onStartup() {
+	globalClient.application.commands.fetch({ guildId: production ? undefined : DEV_SERVER_ID });
+
 	// Sync disabled commands
 	const disabledCommands = await prisma.clientStorage.upsert({
 		where: {
-			id: CLIENT_ID
+			id: globalConfig.clientID
 		},
 		select: { disabled_commands: true },
 		create: {
-			id: CLIENT_ID
+			id: globalConfig.clientID
 		},
 		update: {}
 	});
@@ -43,7 +47,7 @@ export async function onStartup() {
 	await syncBlacklists();
 
 	if (!production) {
-		log('Syncing commands locally...');
+		console.log('Syncing commands locally...');
 		await bulkUpdateCommands({
 			client: globalClient.mahojiClient,
 			commands: globalClient.mahojiClient.commands.values,
@@ -58,7 +62,14 @@ export async function onStartup() {
 	cacheCleanup();
 
 	runTimedLoggedFn('Sync Linked Accounts', syncLinkedAccounts);
+	runTimedLoggedFn('Init Grand Exchange', GrandExchange.init.bind(GrandExchange));
 
 	initCrons();
 	initTickers();
+
+	sendToChannelID(Channel.GeneralChannel, {
+		content: `I have just turned on!
+
+${META_CONSTANTS.RENDERED_STR}`
+	}).catch(console.error);
 }

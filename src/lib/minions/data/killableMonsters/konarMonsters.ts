@@ -16,7 +16,7 @@ export const konarMonsters: KillableMonster[] = [
 
 		wildy: false,
 
-		notifyDrops: resolveItems(['Dragon metal slice']),
+		notifyDrops: resolveItems(['Dragon metal slice', 'Draconic visage']),
 
 		difficultyRating: 5,
 		itemsRequired: resolveItems(['Anti-dragon shield']),
@@ -164,6 +164,15 @@ export const konarMonsters: KillableMonster[] = [
 			{
 				[itemID('Saradomin godsword')]: 8,
 				[itemID('Dragon claws')]: 10
+			},
+			{
+				[itemID('Masori body (f)')]: 1
+			},
+			{
+				[itemID('Masori chaps (f)')]: 1
+			},
+			{
+				[itemID('Masori mask (f)')]: 1
 			}
 		],
 		slayerOnly: true,

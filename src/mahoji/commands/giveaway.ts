@@ -3,15 +3,17 @@ import { ActionRowBuilder, AttachmentBuilder, BaseMessageOptions, ButtonBuilder,
 import { randInt, Time } from 'e';
 import { ApplicationCommandOptionType, CommandRunOptions } from 'mahoji';
 
-import { addToGPTaxBalance, prisma } from '../../lib/settings/prisma';
-import { channelIsSendable, makeComponents } from '../../lib/util';
+import { prisma } from '../../lib/settings/prisma';
+import { channelIsSendable, isModOrAdmin, makeComponents } from '../../lib/util';
 import { generateGiveawayContent } from '../../lib/util/giveaway';
+import { handleMahojiConfirmation } from '../../lib/util/handleMahojiConfirmation';
+import itemIsTradeable from '../../lib/util/itemIsTradeable';
 import { logError } from '../../lib/util/logError';
 import { makeBankImage } from '../../lib/util/makeBankImage';
 import { parseBank } from '../../lib/util/parseStringBank';
 import { filterOption } from '../lib/mahojiCommandOptions';
 import { OSBMahojiCommand } from '../lib/util';
-import { handleMahojiConfirmation, mahojiUsersSettingsFetch } from '../mahojiSettings';
+import { addToGPTaxBalance } from '../mahojiSettings';
 
 function makeGiveawayButtons(giveawayID: number): BaseMessageOptions['components'] {
 	return [
@@ -81,7 +83,6 @@ export const giveawayCommand: OSBMahojiCommand = {
 	}: CommandRunOptions<{ start?: { duration: string; items?: string; filter?: string; search?: string } }>) => {
 		const user = await mUserFetch(userID);
 		if (user.isIronman) return 'You cannot do giveaways!';
-		const mUser = await mahojiUsersSettingsFetch(user.id);
 		const channel = globalClient.channels.cache.get(channelID.toString());
 		if (!channelIsSendable(channel)) return 'Invalid channel.';
 
@@ -92,8 +93,8 @@ export const giveawayCommand: OSBMahojiCommand = {
 					completed: false
 				}
 			});
-			if (existingGiveaways.length >= 5) {
-				return 'You cannot have more than 5 giveaways active at a time.';
+			if (existingGiveaways.length >= 10 && !isModOrAdmin(user)) {
+				return 'You cannot have more than 10 giveaways active at a time.';
 			}
 
 			if (!guildID) {
@@ -102,19 +103,19 @@ export const giveawayCommand: OSBMahojiCommand = {
 
 			const bank = parseBank({
 				inputStr: options.start.items,
-				inputBank: user.bank,
-				excludeItems: mUser.favoriteItems,
+				inputBank: user.bankWithGP,
+				excludeItems: user.user.favoriteItems,
 				user,
 				search: options.start.search,
 				filters: [options.start.filter, 'tradeables'],
 				maxSize: 70
 			});
 
-			if (!user.bank.has(bank)) {
+			if (!user.bankWithGP.has(bank)) {
 				return "You don't own those items.";
 			}
 
-			if (bank.items().some(i => !i[0].tradeable)) {
+			if (bank.items().some(i => !itemIsTradeable(i[0].id, true))) {
 				return "You can't giveaway untradeable items.";
 			}
 
@@ -132,7 +133,7 @@ export const giveawayCommand: OSBMahojiCommand = {
 			}
 
 			await user.sync();
-			if (!user.bank.has(bank)) {
+			if (!user.bankWithGP.has(bank)) {
 				return "You don't own those items.";
 			}
 
@@ -140,7 +141,7 @@ export const giveawayCommand: OSBMahojiCommand = {
 				return 'You cannot have a giveaway with no items in it.';
 			}
 
-			const giveawayID = randInt(1, 100_000_000);
+			const giveawayID = randInt(1, 500_000_000);
 
 			const message = await channel.send({
 				content: generateGiveawayContent(user.id, duration.fromNow, []),

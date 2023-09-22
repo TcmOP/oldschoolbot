@@ -1,14 +1,21 @@
 import '../data/itemAliases';
 
+import { stringMatches } from '@oldschoolgg/toolkit';
 import { Bank, Misc, Monsters } from 'oldschooljs';
 
 import { handleNexKills } from '../simulation/nex';
-import { calcDropRatesFromBank } from '../util';
-import { stringMatches } from '../util/cleanString';
+import { calcDropRatesFromBank } from '../util/calcDropRatesFromBank';
 import resolveItems from '../util/resolveItems';
-import { KillWorkerArgs, KillWorkerReturn } from '.';
+import type { KillWorkerArgs, KillWorkerReturn } from '.';
 
-export default ({ quantity, bossName, limit, catacombs, onTask }: KillWorkerArgs): KillWorkerReturn => {
+export default async ({
+	quantity,
+	bossName,
+	catacombs,
+	onTask,
+	limit,
+	lootTableTertiaryChanges
+}: KillWorkerArgs): KillWorkerReturn => {
 	const osjsMonster = Monsters.find(mon => mon.aliases.some(alias => stringMatches(alias, bossName)));
 
 	if (osjsMonster) {
@@ -20,7 +27,15 @@ export default ({ quantity, bossName, limit, catacombs, onTask }: KillWorkerArgs
 			};
 		}
 
-		return { bank: osjsMonster.kill(quantity, { inCatacombs: catacombs, onSlayerTask: onTask }) };
+		return {
+			bank: osjsMonster.kill(quantity, {
+				inCatacombs: catacombs,
+				onSlayerTask: onTask,
+				lootTableOptions: {
+					tertiaryItemPercentageChanges: new Map(lootTableTertiaryChanges)
+				}
+			})
+		};
 	}
 
 	if (['nightmare', 'the nightmare'].some(alias => stringMatches(alias, bossName))) {
@@ -38,6 +53,7 @@ export default ({ quantity, bossName, limit, catacombs, onTask }: KillWorkerArgs
 		if (quantity > 3000) {
 			return { error: 'I can only kill a maximum of 3k Nex a time!' };
 		}
+
 		const loot = handleNexKills({
 			quantity,
 			team: [

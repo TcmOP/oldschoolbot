@@ -1,6 +1,6 @@
 import { command_usage_status, Prisma } from '@prisma/client';
+import { CommandOptions } from 'mahoji/dist/lib/types';
 
-import { CommandArgs } from '../../mahoji/lib/inhibitors';
 import { getCommandArgs } from '../../mahoji/lib/util';
 
 export function makeCommandUsage({
@@ -11,16 +11,18 @@ export function makeCommandUsage({
 	commandName,
 	args,
 	isContinue,
-	inhibited
+	inhibited,
+	continueDeltaMillis
 }: {
 	userID: string | bigint;
 	channelID: string | bigint;
 	guildID?: string | bigint | null;
 	flags: null | Record<string, string>;
 	commandName: string;
-	args: CommandArgs;
+	args: CommandOptions;
 	isContinue: null | boolean;
 	inhibited: boolean;
+	continueDeltaMillis: number | null;
 }): Prisma.CommandUsageCreateInput {
 	return {
 		user_id: BigInt(userID),
@@ -31,6 +33,7 @@ export function makeCommandUsage({
 		guild_id: guildID ? BigInt(guildID) : null,
 		flags: flags ? (Object.keys(flags).length > 0 ? flags : undefined) : undefined,
 		is_continue: isContinue ?? undefined,
-		inhibited
+		inhibited,
+		continue_delta_millis: continueDeltaMillis
 	};
 }

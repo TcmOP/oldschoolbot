@@ -32,7 +32,10 @@ const slayerHelmSimilar = resolveItems([
 	'Purple slayer helmet',
 	'Turquoise slayer helmet',
 	'Hydra slayer helmet',
-	'Twisted slayer helmet'
+	'Twisted slayer helmet',
+	'Tztok slayer helmet',
+	'Vampyric slayer helmet',
+	'Tzkal slayer helmet'
 ]);
 const slayerHelmSimilarI = resolveItems([
 	'Black slayer helmet (i)',
@@ -42,7 +45,10 @@ const slayerHelmSimilarI = resolveItems([
 	'Turquoise slayer helmet (i)',
 	'Hydra slayer helmet (i)',
 	'Twisted slayer helmet (i)',
-	'Slayer helmet (i)'
+	'Slayer helmet (i)',
+	'Tztok slayer helmet (i)',
+	'Vampyric slayer helmet (i)',
+	'Tzkal slayer helmet (i)'
 ]);
 const bowfaCorruptSimilar = resolveItems([
 	25_869, // Red, 'duplicate' according to osrsbox item-search
@@ -56,6 +62,8 @@ const bowfaCorruptSimilar = resolveItems([
 ]);
 
 const source: [string, (string | number)[]][] = [
+	['Rune axe', ['Gilded axe']],
+	['Rune pickaxe', ['Gilded pickaxe']],
 	['Dragon full helm', ['Dragon full helm (g)']],
 	['Dragon chainbody', ['Dragon chainbody (g)']],
 	['Dragon platebody', ['Dragon platebody (g)']],
@@ -161,7 +169,10 @@ const source: [string, (string | number)[]][] = [
 	['Infernal cape', ['Infernal max cape', 'Infernal max cape (l)']],
 	['Ardougne cloak 4', ['Ardougne max cape']],
 	["Ava's accumulator", ['Accumulator max cape']],
-	["Ava's assembler", ['Assembler max cape', 'Assembler max cape (l)']],
+	[
+		"Ava's assembler",
+		['Assembler max cape', 'Assembler max cape (l)', 'Masori assembler', 'Masori assembler max cape']
+	],
 	['Mythical cape', ['Mythical max cape']],
 	['Achievement diary cape', ['Achievement diary cape(t)']],
 	[
@@ -181,15 +192,27 @@ const source: [string, (string | number)[]][] = [
 	['Dragonfire ward', [22_003]],
 	['Dragonfire shield', [11_284]],
 	['Ancient wyvern shield', [21_634]],
-	['Avernic defender', ['Avernic defender (l)']],
-	['Void melee helm', ['Void melee helm (l)']],
-	['Void mage helm', ['Void mage helm (l)']],
-	['Void ranger helm', ['Void ranger helm (l)']],
-	['Void knight top', ['Void knight top (l)', 'Elite void top', 'Elite void top (l)']],
-	['Elite void top', ['Elite void top (l)']],
-	['Void knight robe', ['Void knight robe (l)', 'Elite void robe', 'Elite void robe (l)']],
-	['Elite void robe', ['Elite void robe (l)']],
-	['Void knight gloves', ['Void knight gloves (l)']],
+	['Avernic defender', ['Avernic defender (l)', "Ghommal's avernic defender 5", "Ghommal's avernic defender 6"]],
+	['Void melee helm', ['Void melee helm (l)', 'Void melee helm (or)']],
+	['Void mage helm', ['Void mage helm (l)', 'Void mage helm (or)']],
+	['Void ranger helm', ['Void ranger helm (l)', 'Void ranger helm (or)']],
+	[
+		'Void knight top',
+		['Void knight top (l)', 'Void knight top (or)', 'Elite void top', 'Elite void top (l)', 'Elite void top (or)']
+	],
+	[
+		'Void knight robe',
+		[
+			'Void knight robe (l)',
+			'Void knight robe (or)',
+			'Elite void robe',
+			'Elite void robe (l)',
+			'Elite void robe (or)'
+		]
+	],
+	['Elite void top', ['Elite void top (l)', 'Elite void top (or)']],
+	['Elite void robe', ['Elite void robe (l)', 'Elite void robe (or)']],
+	['Void knight gloves', ['Void knight gloves (l)', 'Void knight gloves (or)']],
 	['Trident of the seas', ['Trident of the seas (full)', 'Trident of the seas (e)']],
 	['Trident of the swamp', ['Trident of the swamp (e)']],
 	['Bow of faerdhinen (c)', bowfaCorruptSimilar],
@@ -292,7 +315,9 @@ const source: [string, (string | number)[]][] = [
 	['Sanguinesti staff (uncharged)', ['Holy sanguinesti staff (uncharged)']],
 	['Magic shortbow', ['Magic shortbow (i)']],
 	['Boots of stone', ['Boots of brimstone', 'Granite boots', "Rada's Blessing 4"]],
-	['Celestial ring (uncharged)', ['Celestial ring', 'Celestial signet']],
+	['Celestial ring (uncharged)', ['Celestial signet', 'Celestial ring', 'Celestial signet (uncharged)']],
+	['Celestial ring', ['Celestial signet']],
+	['Celestial signet (uncharged)', ['Celestial signet']],
 	['Prospector jacket', ['Golden prospector jacket', 'Varrock armour 4']],
 	['Prospector legs', ['Golden prospector legs']],
 	['Prospector boots', ['Golden prospector boots']],
@@ -302,7 +327,30 @@ const source: [string, (string | number)[]][] = [
 	[
 		'Robe bottoms of the eye',
 		['Robe bottoms of the eye (red)', 'Robe bottoms of the eye (green)', 'Robe bottoms of the eye (blue)']
-	]
+	],
+	["Osmumten's fang", ["Osmumten's fang (or)"]],
+	["Elidinis' ward (f)", ["Elidinis' ward (or)"]],
+	['Rune pouch', ['Divine rune pouch']],
+	['Ghrazi rapier', ['Holy ghrazi rapier']],
+	["Karil's coif", ['Armadyl helmet', 'Masori mask (f)', 'Masori mask']],
+	["Karil's leathertop", ['Armadyl chestplate', 'Masori body (f)', 'Masori body']],
+	["Karil's leatherskirt", ['Armadyl chainskirt', 'Masori chaps (f)', 'Masori chaps']],
+	['Armadyl helmet', ['Masori mask (f)', 'Masori mask']],
+	['Armadyl chestplate', ['Armadyl chestplate', 'Masori body (f)', 'Masori body']],
+	['Armadyl chainskirt', ['Masori chaps (f)', 'Masori chaps']],
+	['Music cape', ['Music cape (t)']],
+	['Imbued heart', ['Saturated heart']],
+	["Craw's bow", ['Webweaver bow']],
+	["Viggora's chainmace", ['Ursine chainmace']],
+	["Thammaron's sceptre", ['Accursed sceptre']],
+	['Torva full helm', ['Sanguine torva full helm']],
+	['Torva platebody', ['Sanguine torva platebody']],
+	['Torva platelegs', ['Sanguine torva platelegs']],
+
+	['Lumberjack hat', ['Forestry hat']],
+	['Lumberjack top', ['Forestry top']],
+	['Lumberjack legs', ['Forestry legs']],
+	['Lumberjack boots', ['Forestry boots']]
 ];
 
 export const similarItems: Map<number, number[]> = new Map(

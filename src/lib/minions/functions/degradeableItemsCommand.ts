@@ -2,9 +2,10 @@ import { ChatInputCommandInteraction } from 'discord.js';
 import { CommandResponse } from 'mahoji/dist/lib/structures/ICommand';
 import { Bank } from 'oldschooljs';
 
-import { handleMahojiConfirmation, mahojiParseNumber } from '../../../mahoji/mahojiSettings';
+import { mahojiParseNumber } from '../../../mahoji/mahojiSettings';
 import { degradeableItems } from '../../degradeableItems';
-import { stringMatches } from '../../util/cleanString';
+import { stringMatches } from '../../util';
+import { handleMahojiConfirmation } from '../../util/handleMahojiConfirmation';
 import { updateBankSetting } from '../../util/updateBankSetting';
 
 export async function degradeableItemsCommand(
@@ -16,8 +17,8 @@ export async function degradeableItemsCommand(
 	const item = degradeableItems.find(i => [i.item.name, ...i.aliases].some(n => stringMatches(n, input ?? '')));
 	const number = mahojiParseNumber({ input: quantity, min: 1, max: 1_000_000 });
 
-	if (!input || !number || !item || number < 1 || number > 10_000) {
-		return `Use \`/minion charge [${degradeableItems.map(i => i.item.name).join('|')}], [1-10,000]\`
+	if (!input || !number || !item || number < 1 || number > 100_000) {
+		return `Use \`/minion charge item: [${degradeableItems.map(i => i.item.name).join('|')}] amount:[1-100,000]\`
 ${degradeableItems
 	.map(i => {
 		const charges = user.user[i.settingsKey];
@@ -49,10 +50,15 @@ ${degradeableItems
 		if (!user.owns(item.unchargedItem!.id)) {
 			return `Your ${item.unchargedItem!.name} disappeared and cannot be charged`;
 		}
-		await user.removeItemsFromBank(new Bank({ [item.unchargedItem!.id]: 1 }));
-		await user.addItemsToBank({ items: { [item.item.id]: 1 }, collectionLog: true, filterLoot: false });
+		await user.transactItems({
+			filterLoot: false,
+			collectionLog: true,
+			itemsToAdd: new Bank().add(item.item.id),
+			itemsToRemove: new Bank().add(item.unchargedItem!.id).add(cost)
+		});
+	} else {
+		await transactItems({ userID: user.id, itemsToRemove: cost });
 	}
-	await transactItems({ userID: user.id, itemsToRemove: cost });
 	const currentCharges = user.user[item.settingsKey];
 	const newCharges = currentCharges + amountOfCharges;
 	await user.update({

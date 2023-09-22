@@ -4,12 +4,12 @@ import { Bank } from 'oldschooljs';
 
 import { LMSBuyables } from '../../../lib/data/CollectionsExport';
 import { lmsSimCommand } from '../../../lib/minions/functions/lmsSimCommand';
-import { MinigameActivityTaskOptions } from '../../../lib/types/minions';
+import type { MinigameActivityTaskOptionsWithNoChanges } from '../../../lib/types/minions';
 import { formatDuration, randomVariation, stringMatches } from '../../../lib/util';
 import addSubTaskToActivityTask from '../../../lib/util/addSubTaskToActivityTask';
 import { calcMaxTripLength } from '../../../lib/util/calcMaxTripLength';
+import { handleMahojiConfirmation } from '../../../lib/util/handleMahojiConfirmation';
 import { getUsersLMSStats } from '../../../tasks/minions/minigames/lmsActivity';
-import { handleMahojiConfirmation } from '../../mahojiSettings';
 
 export async function lmsCommand(
 	options: {
@@ -90,7 +90,7 @@ export async function lmsCommand(
 	const quantity = Math.floor(calcMaxTripLength(user, 'LastManStanding') / durationPerGame);
 	const duration = randomVariation(quantity * durationPerGame, 5);
 
-	await addSubTaskToActivityTask<MinigameActivityTaskOptions>({
+	await addSubTaskToActivityTask<MinigameActivityTaskOptionsWithNoChanges>({
 		minigameID: 'lms',
 		userID: user.id,
 		channelID: channelID.toString(),

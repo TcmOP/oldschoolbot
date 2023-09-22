@@ -1,21 +1,22 @@
-import { randArrItem } from 'e';
 import { ApplicationCommandOptionType, CommandRunOptions } from 'mahoji';
 import { Bank } from 'oldschooljs';
+import { ItemBank } from 'oldschooljs/dist/meta/types';
 
 import Buyables from '../../lib/data/buyables/buyables';
-import { leagueBuyables } from '../../lib/data/leaguesBuyables';
-import { kittens } from '../../lib/growablePets';
 import { gotFavour } from '../../lib/minions/data/kourendFavour';
 import { getMinigameScore, Minigames } from '../../lib/settings/minigames';
+import { prisma } from '../../lib/settings/prisma';
+import { MUserStats } from '../../lib/structures/MUserStats';
 import { formatSkillRequirements, itemNameFromID, stringMatches } from '../../lib/util';
-import { mahojiChatHead } from '../../lib/util/chatHeadImage';
-import getOSItem from '../../lib/util/getOSItem';
+import { handleMahojiConfirmation } from '../../lib/util/handleMahojiConfirmation';
+import { deferInteraction } from '../../lib/util/interactionReply';
 import { updateBankSetting } from '../../lib/util/updateBankSetting';
-import { leaguesBuyCommand } from '../lib/abstracted_commands/leaguesBuyCommand';
+import { buyFossilIslandNotes } from '../lib/abstracted_commands/buyFossilIslandNotes';
+import { buyKitten } from '../lib/abstracted_commands/buyKitten';
 import { OSBMahojiCommand } from '../lib/util';
-import { handleMahojiConfirmation, mahojiParseNumber } from '../mahojiSettings';
+import { mahojiParseNumber, multipleUserStatsBankUpdate } from '../mahojiSettings';
 
-const allBuyablesAutocomplete = [...Buyables, ...leagueBuyables.map(i => ({ name: i.item.name })), { name: 'Kitten' }];
+const allBuyablesAutocomplete = [...Buyables, { name: 'Kitten' }, { name: 'Fossil Island Notes' }];
 
 export const buyCommand: OSBMahojiCommand = {
 	name: 'buy',
@@ -42,47 +43,12 @@ export const buyCommand: OSBMahojiCommand = {
 	run: async ({ options, userID, interaction }: CommandRunOptions<{ name: string; quantity?: string }>) => {
 		const user = await mUserFetch(userID.toString());
 		const { name } = options;
-		const quantity = mahojiParseNumber({ input: options.quantity, min: 1 }) ?? 1;
+		let quantity = mahojiParseNumber({ input: options.quantity, min: 1 }) ?? 1;
 		if (stringMatches(name, 'kitten')) {
-			const cost = new Bank().add('Coins', 1000);
-			if (!user.owns(cost)) {
-				return mahojiChatHead({
-					head: 'gertrude',
-					content: "You don't have enough GP to buy a kitten! They cost 1000 coins."
-				});
-			}
-			if (user.QP < 10) {
-				return mahojiChatHead({
-					head: 'gertrude',
-					content: "You haven't done enough quests to raise a kitten yet!"
-				});
-			}
-
-			const allItemsOwnedBank = user.allItemsOwned();
-			if (kittens.some(kitten => allItemsOwnedBank.has(kitten))) {
-				return mahojiChatHead({
-					head: 'gertrude',
-					content: "You are already raising a kitten! You can't handle a second."
-				});
-			}
-
-			const kitten = getOSItem(randArrItem(kittens));
-
-			const loot = new Bank().add(kitten.id);
-
-			await transactItems({ userID: user.id, itemsToRemove: cost });
-			await transactItems({ userID: userID.toString(), itemsToAdd: loot, collectionLog: true });
-
-			return {
-				...(await mahojiChatHead({
-					head: 'gertrude',
-					content: `Here's a ${kitten.name}, raise it well and take care of it, please!`
-				})),
-				content: `Removed ${cost} from your bank.`
-			};
+			return buyKitten(user);
 		}
-		if (leagueBuyables.some(i => stringMatches(i.item.name, name))) {
-			return leaguesBuyCommand(user, name, quantity);
+		if (stringMatches(name, 'Fossil Island Notes')) {
+			return buyFossilIslandNotes(user, interaction, quantity);
 		}
 
 		const buyable = Buyables.find(
@@ -102,10 +68,15 @@ export const buyCommand: OSBMahojiCommand = {
 		}
 
 		if (buyable.customReq) {
-			const [hasCustomReq, reason] = await buyable.customReq(user);
+			await deferInteraction(interaction);
+			const [hasCustomReq, reason] = await buyable.customReq(user, await MUserStats.fromID(user.id));
 			if (!hasCustomReq) {
 				return reason!;
 			}
+		}
+
+		if (buyable.maxQuantity) {
+			quantity = quantity > buyable.maxQuantity ? buyable.maxQuantity : quantity;
 		}
 
 		if (buyable.qpRequired) {
@@ -157,7 +128,7 @@ export const buyCommand: OSBMahojiCommand = {
 				? new Bank().add(buyable.name)
 				: buyable.outputItems instanceof Bank
 				? buyable.outputItems
-				: buyable.outputItems(await mUserFetch(user.id));
+				: buyable.outputItems(user);
 
 		const outItems = singleOutput.clone().multiply(quantity);
 
@@ -166,19 +137,35 @@ export const buyCommand: OSBMahojiCommand = {
 			`${user}, please confirm that you want to buy **${outItems}** for: ${totalCost}.`
 		);
 
-		const econBankChanges = new Bank();
-
-		await user.removeItemsFromBank(totalCost);
-		econBankChanges.add(totalCost);
-
-		updateBankSetting('buy_cost_bank', econBankChanges);
-		updateBankSetting('buy_loot_bank', outItems);
-
 		await transactItems({
 			userID: user.id,
 			itemsToAdd: outItems,
-			collectionLog: true
+			collectionLog: true,
+			itemsToRemove: totalCost
 		});
+
+		let costBankExcludingGP: ItemBank | undefined = totalCost
+			.clone()
+			.remove('Coins', totalCost.amount('Coins')).bank;
+		if (Object.keys(costBankExcludingGP).length === 0) costBankExcludingGP = undefined;
+
+		await Promise.all([
+			updateBankSetting('buy_cost_bank', totalCost),
+			updateBankSetting('buy_loot_bank', outItems),
+			multipleUserStatsBankUpdate(user.id, {
+				buy_cost_bank: totalCost,
+				buy_loot_bank: outItems
+			}),
+			prisma.buyCommandTransaction.create({
+				data: {
+					user_id: BigInt(user.id),
+					cost_gp: totalCost.amount('Coins'),
+					cost_bank_excluding_gp: costBankExcludingGP,
+					loot_bank: outItems.bank
+				}
+			})
+		]);
+
 		return `You purchased ${outItems}.`;
 	}
 };

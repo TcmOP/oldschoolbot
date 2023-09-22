@@ -1,9 +1,11 @@
+import { CommandOptions } from 'mahoji/dist/lib/types';
+
 import { modifyBusyCounter } from '../../lib/busyCounterCache';
-import { shouldTrackCommand } from '../../lib/constants';
+import { busyImmuneCommands, shouldTrackCommand } from '../../lib/constants';
 import { prisma } from '../../lib/settings/prisma';
 import { makeCommandUsage } from '../../lib/util/commandUsage';
 import { logError } from '../../lib/util/logError';
-import { AbstractCommand, CommandArgs } from './inhibitors';
+import { AbstractCommand } from './inhibitors';
 
 export async function postCommand({
 	abstractCommand,
@@ -12,19 +14,29 @@ export async function postCommand({
 	channelID,
 	args,
 	isContinue,
-	inhibited
+	inhibited,
+	continueDeltaMillis
 }: {
 	abstractCommand: AbstractCommand;
 	userID: string;
 	guildID?: string | bigint | null;
 	channelID: string | bigint;
 	error: Error | string | null;
-	args: CommandArgs;
+	args: CommandOptions;
 	isContinue: boolean;
 	inhibited: boolean;
+	continueDeltaMillis: number | null;
 }): Promise<string | undefined> {
-	setTimeout(() => modifyBusyCounter(userID, -1), 1000);
-
+	if (!busyImmuneCommands.includes(abstractCommand.name)) {
+		setTimeout(() => modifyBusyCounter(userID, -1), 1000);
+	}
+	debugLog('Postcommand', {
+		type: 'RUN_COMMAND',
+		command_name: abstractCommand.name,
+		user_id: userID,
+		guild_id: guildID,
+		channel_id: channelID
+	});
 	if (shouldTrackCommand(abstractCommand, args)) {
 		const commandUsage = makeCommandUsage({
 			userID,
@@ -34,7 +46,8 @@ export async function postCommand({
 			args,
 			isContinue,
 			flags: null,
-			inhibited
+			inhibited,
+			continueDeltaMillis
 		});
 		try {
 			await prisma.$transaction([

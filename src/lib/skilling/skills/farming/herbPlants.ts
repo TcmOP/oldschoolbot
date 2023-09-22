@@ -5,6 +5,7 @@ import { Plant } from '../../types';
 
 const herbPlants: Plant[] = [
 	{
+		id: itemID('Grimy guam leaf'),
 		level: 9,
 		plantXp: 0,
 		checkXp: 11,
@@ -13,6 +14,9 @@ const herbPlants: Plant[] = [
 		aliases: ['guam weed', 'guam'],
 		inputItems: new Bank({ 'Guam seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy guam leaf'),
+		cleanHerbCrop: itemID('Guam leaf'),
+		herbXp: 2.5,
+		herbLvl: 3,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -44,6 +48,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy marrentill'),
 		level: 14,
 		plantXp: 0,
 		checkXp: 13.5,
@@ -52,6 +57,9 @@ const herbPlants: Plant[] = [
 		aliases: ['marrentill weed', 'marrentill'],
 		inputItems: new Bank({ 'Marrentill seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy marrentill'),
+		cleanHerbCrop: itemID('Marrentill'),
+		herbXp: 3.8,
+		herbLvl: 5,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -83,6 +91,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy tarromin'),
 		level: 19,
 		plantXp: 0,
 		checkXp: 16,
@@ -91,6 +100,9 @@ const herbPlants: Plant[] = [
 		aliases: ['tarromin weed', 'tarromin'],
 		inputItems: new Bank({ 'Tarromin seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy tarromin'),
+		cleanHerbCrop: itemID('Tarromin'),
+		herbXp: 5,
+		herbLvl: 11,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -122,6 +134,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy harralander'),
 		level: 26,
 		plantXp: 0,
 		checkXp: 21.5,
@@ -130,6 +143,9 @@ const herbPlants: Plant[] = [
 		aliases: ['harralander weed', 'harralander'],
 		inputItems: new Bank({ 'Harralander seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy harralander'),
+		cleanHerbCrop: itemID('Harralander'),
+		herbXp: 6.3,
+		herbLvl: 20,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -161,6 +177,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy ranarr weed'),
 		level: 32,
 		plantXp: 0,
 		checkXp: 27,
@@ -169,6 +186,9 @@ const herbPlants: Plant[] = [
 		aliases: ['ranarr weed', 'ranarr'],
 		inputItems: new Bank({ 'Ranarr seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy ranarr weed'),
+		cleanHerbCrop: itemID('Ranarr weed'),
+		herbXp: 7.5,
+		herbLvl: 25,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -200,6 +220,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy toadflax'),
 		level: 38,
 		plantXp: 0,
 		checkXp: 34,
@@ -208,6 +229,9 @@ const herbPlants: Plant[] = [
 		aliases: ['toadflax weed', 'toadflax'],
 		inputItems: new Bank({ 'Toadflax seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy toadflax'),
+		cleanHerbCrop: itemID('Toadflax'),
+		herbXp: 8,
+		herbLvl: 30,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -239,6 +263,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy irit leaf'),
 		level: 44,
 		plantXp: 0,
 		checkXp: 43,
@@ -247,6 +272,9 @@ const herbPlants: Plant[] = [
 		aliases: ['irit weed', 'irit'],
 		inputItems: new Bank({ 'Irit seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy irit leaf'),
+		cleanHerbCrop: itemID('Irit leaf'),
+		herbXp: 8.8,
+		herbLvl: 40,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -278,6 +306,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy avantoe'),
 		level: 50,
 		plantXp: 0,
 		checkXp: 54.5,
@@ -286,6 +315,9 @@ const herbPlants: Plant[] = [
 		aliases: ['avantoe weed', 'avantoe'],
 		inputItems: new Bank({ 'Avantoe seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy avantoe'),
+		cleanHerbCrop: itemID('Avantoe'),
+		herbXp: 10,
+		herbLvl: 48,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -317,6 +349,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy kwuarm'),
 		level: 56,
 		plantXp: 0,
 		checkXp: 69,
@@ -325,6 +358,9 @@ const herbPlants: Plant[] = [
 		aliases: ['kwuarm weed', 'kwuarm'],
 		inputItems: new Bank({ 'Kwuarm seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy kwuarm'),
+		cleanHerbCrop: itemID('Kwuarm'),
+		herbXp: 11.3,
+		herbLvl: 54,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -356,6 +392,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy snapdragon'),
 		level: 62,
 		plantXp: 0,
 		checkXp: 87.5,
@@ -364,6 +401,9 @@ const herbPlants: Plant[] = [
 		aliases: ['snapdragon weed', 'snapdragon'],
 		inputItems: new Bank({ 'Snapdragon seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy snapdragon'),
+		cleanHerbCrop: itemID('Snapdragon'),
+		herbXp: 11.8,
+		herbLvl: 59,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -395,6 +435,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy cadantine'),
 		level: 67,
 		plantXp: 0,
 		checkXp: 106.5,
@@ -403,6 +444,9 @@ const herbPlants: Plant[] = [
 		aliases: ['cadantine weed', 'cadantine'],
 		inputItems: new Bank({ 'Cadantine seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy cadantine'),
+		cleanHerbCrop: itemID('Cadantine'),
+		herbXp: 12.5,
+		herbLvl: 65,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -434,6 +478,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy lantadyme'),
 		level: 73,
 		plantXp: 0,
 		checkXp: 134.5,
@@ -442,6 +487,9 @@ const herbPlants: Plant[] = [
 		aliases: ['lantadyme weed', 'lantadyme'],
 		inputItems: new Bank({ 'Lantadyme seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy lantadyme'),
+		cleanHerbCrop: itemID('Lantadyme'),
+		herbXp: 13.1,
+		herbLvl: 67,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -473,6 +521,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy dwarf weed'),
 		level: 79,
 		plantXp: 0,
 		checkXp: 170.5,
@@ -481,6 +530,9 @@ const herbPlants: Plant[] = [
 		aliases: ['dwarf weed', 'dwarf'],
 		inputItems: new Bank({ 'Dwarf weed seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy dwarf weed'),
+		cleanHerbCrop: itemID('Dwarf weed'),
+		herbXp: 13.8,
+		herbLvl: 70,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,
@@ -512,6 +564,7 @@ const herbPlants: Plant[] = [
 		timePerHarvest: 10
 	},
 	{
+		id: itemID('Grimy torstol'),
 		level: 85,
 		plantXp: 0,
 		checkXp: 199.5,
@@ -520,6 +573,9 @@ const herbPlants: Plant[] = [
 		aliases: ['torstol weed', 'torstol'],
 		inputItems: new Bank({ 'Torstol seed': 1 }).freeze(),
 		outputCrop: itemID('Grimy torstol'),
+		cleanHerbCrop: itemID('Torstol'),
+		herbXp: 15,
+		herbLvl: 75,
 		petChance: 98_364,
 		seedType: 'herb',
 		growthTime: 80,

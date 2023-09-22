@@ -2,7 +2,7 @@ import { objectEntries } from 'e';
 import { Monsters } from 'oldschooljs';
 import { Item } from 'oldschooljs/dist/meta/types';
 
-import { MAX_QP } from './constants';
+import { MAX_QP } from '../mahoji/lib/abstracted_commands/questCommand';
 import type { MinigameName } from './settings/minigames';
 import Skillcapes from './skilling/skillcapes';
 import { courses } from './skilling/skills/agility';
@@ -10,6 +10,9 @@ import { ItemBank, Skills } from './types';
 import { formatSkillRequirements, hasSkillReqs, itemNameFromID } from './util';
 import getOSItem from './util/getOSItem';
 import resolveItems from './util/resolveItems';
+
+export const diaryTiers = ['easy', 'medium', 'hard', 'elite'] as const;
+export type DiaryTierName = (typeof diaryTiers)[number];
 
 export interface DiaryTier {
 	name: 'Easy' | 'Medium' | 'Hard' | 'Elite';
@@ -23,7 +26,7 @@ export interface DiaryTier {
 	monsterScores?: Record<string, number>;
 	customReq?: (user: MUser, summary: Boolean) => Promise<[true] | [false, string]>;
 }
-interface Diary {
+export interface Diary {
 	name: string;
 	alias?: string[];
 	easy: DiaryTier;
@@ -49,8 +52,9 @@ export async function userhasDiaryTier(user: MUser, tier: DiaryTier): Promise<[t
 	const { bank } = user;
 	const { cl } = user;
 	const qp = user.QP;
-	const lapScores = user.user.lapsScores as ItemBank;
-	const monsterScores = user.user.monsterScores as ItemBank;
+	const stats = await user.fetchStats({ laps_scores: true, monster_scores: true });
+	const lapScores = stats.laps_scores as ItemBank;
+	const monsterScores = stats.monster_scores as ItemBank;
 
 	if (tier.ownedItems) {
 		const unownedItems = tier.ownedItems.filter(i => !bank.has(i));
@@ -656,7 +660,8 @@ export const KandarinDiary: Diary = {
 		collectionLogReqs: resolveItems(['Grimy dwarf weed', 'Shark']),
 		customReq: async (user, summary) => {
 			if (summary) return [false, 'Barbarian Assault Honour Level of 5.'];
-			const honourLevel = user.user.honour_level;
+			const stats = await user.fetchStats({ honour_level: true });
+			const honourLevel = stats.honour_level;
 			if (honourLevel < 5) {
 				return [false, 'your Barbarian Assault Honour Level is less than 5'];
 			}

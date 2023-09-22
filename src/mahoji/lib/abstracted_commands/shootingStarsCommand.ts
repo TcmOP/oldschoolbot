@@ -1,21 +1,18 @@
+import { SimpleTable } from '@oldschoolgg/toolkit';
 import { activity_type_enum } from '@prisma/client';
 import { ButtonBuilder, ButtonStyle } from 'discord.js';
 import { percentChance, randInt, roll, Time } from 'e';
 import { Bank } from 'oldschooljs';
-import SimpleTable from 'oldschooljs/dist/structures/SimpleTable';
 
-import { Emoji, Events } from '../../../lib/constants';
 import addSkillingClueToLoot from '../../../lib/minions/functions/addSkillingClueToLoot';
 import { determineMiningTime } from '../../../lib/skilling/functions/determineMiningTime';
+import { pickaxes } from '../../../lib/skilling/functions/miningBoosts';
 import { Ore, SkillsEnum } from '../../../lib/skilling/types';
-import { ItemBank } from '../../../lib/types';
-import { ActivityTaskOptions } from '../../../lib/types/minions';
+import { ActivityTaskData, ShootingStarsOptions } from '../../../lib/types/minions';
 import { formatDuration, itemNameFromID } from '../../../lib/util';
 import addSubTaskToActivityTask from '../../../lib/util/addSubTaskToActivityTask';
 import { calcMaxTripLength, patronMaxTripBonus } from '../../../lib/util/calcMaxTripLength';
-import { handleTripFinish } from '../../../lib/util/handleTripFinish';
 import { minionName } from '../../../lib/util/minionUtils';
-import { pickaxes } from '../../commands/mine';
 import { MUserClass } from './../../../lib/MUser';
 
 interface Star extends Ore {
@@ -25,7 +22,7 @@ interface Star extends Ore {
 	dustAvailable: number;
 	additionalDustPercent: number;
 }
-const starSizes: Star[] = [
+export const starSizes: Star[] = [
 	{
 		size: 9,
 		level: 90,
@@ -172,13 +169,6 @@ const starSizes: Star[] = [
 	}
 ];
 
-export interface ShootingStarsData extends ActivityTaskOptions {
-	size: number;
-	usersWith: number;
-	totalXp: number;
-	lootItems: ItemBank;
-}
-
 export async function shootingStarsCommand(channelID: string, user: MUserClass, star: Star): Promise<string> {
 	const skills = user.skillsAsLevels;
 	const boosts = [];
@@ -252,7 +242,7 @@ export async function shootingStarsCommand(channelID: string, user: MUserClass, 
 	loot.add('Stardust', dustReceived);
 	const lootItems = loot.bank;
 
-	await addSubTaskToActivityTask<ShootingStarsData>({
+	await addSubTaskToActivityTask<ShootingStarsOptions>({
 		userID: user.id,
 		channelID: channelID.toString(),
 		duration,
@@ -274,36 +264,6 @@ export async function shootingStarsCommand(channelID: string, user: MUserClass, 
 	return str;
 }
 
-export async function shootingStarsActivity(data: ShootingStarsData) {
-	const user = await mUserFetch(data.userID);
-	const star = starSizes.find(i => i.size === data.size)!;
-	const { usersWith } = data;
-	const loot = new Bank(data.lootItems);
-	const userMiningLevel = user.skillLevel(SkillsEnum.Mining);
-
-	await user.addItemsToBank({ items: loot, collectionLog: true });
-	const xpStr = await user.addXP({
-		skillName: SkillsEnum.Mining,
-		amount: data.totalXp,
-		duration: data.duration
-	});
-
-	let str = `${user}, ${user.minionName} finished mining a size ${star.size} Crashed Star, there was ${
-		usersWith - 1 || 'no'
-	} other players mining with you.\nYou received ${loot}.\n${xpStr}`;
-	if (loot.has('Rock golem')) {
-		str += "\nYou have a funny feeling you're being followed...";
-		globalClient.emit(
-			Events.ServerNotification,
-			`${Emoji.Mining} **${user.badgedUsername}'s** minion, ${user.minionName}, just received ${
-				loot.amount('Rock golem') > 1 ? `${loot.amount('Rock golem')}x ` : 'a'
-			} Rock golem while mining a fallen Shooting Star at level ${userMiningLevel} Mining!`
-		);
-	}
-
-	handleTripFinish(user, data.channelID, str, undefined, data, loot);
-}
-
 const activitiesCantGetStars: activity_type_enum[] = [
 	'FightCaves',
 	'Wintertodt',
@@ -315,12 +275,15 @@ const activitiesCantGetStars: activity_type_enum[] = [
 	'Inferno',
 	'TokkulShop',
 	'ShootingStars',
-	'Nex'
+	'Nex',
+	'TombsOfAmascut',
+	'TheatreOfBlood',
+	'Raids'
 ];
 
 export const starCache = new Map<string, Star & { expiry: number }>();
 
-export function handleTriggerShootingStar(user: MUserClass, data: ActivityTaskOptions, components: ButtonBuilder[]) {
+export function handleTriggerShootingStar(user: MUserClass, data: ActivityTaskData, components: ButtonBuilder[]) {
 	if (activitiesCantGetStars.includes(data.type)) return;
 	const miningLevel = user.skillLevel(SkillsEnum.Mining);
 	const elligibleStars = starSizes.filter(i => i.chance > 0 && i.level <= miningLevel);
@@ -331,7 +294,7 @@ export function handleTriggerShootingStar(user: MUserClass, data: ActivityTaskOp
 	for (const star of elligibleStars) shootingStarTable.add(star, star.chance);
 	const starRoll = shootingStarTable.roll();
 	if (!starRoll) return;
-	const star = starRoll.item;
+	const star = starRoll;
 	const button = new ButtonBuilder()
 		.setCustomId('DO_SHOOTING_STAR')
 		.setLabel(`Mine Size ${star.size} Crashed Star`)
