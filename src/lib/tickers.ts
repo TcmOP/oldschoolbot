@@ -1,12 +1,13 @@
 import { EmbedBuilder } from '@discordjs/builders';
 import { Activity } from '@prisma/client';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, TextChannel } from 'discord.js';
-import { noOp, randInt, shuffleArr, Time } from 'e';
+import { noOp, randInt, removeFromArr, shuffleArr, Time } from 'e';
 
 import { production } from '../config';
 import { userStatsUpdate } from '../mahoji/mahojiSettings';
 import { BitField, Channel, informationalButtons, PeakTier } from './constants';
 import { GrandExchange } from './grandExchange';
+import { cacheGEPrices } from './marketPrices';
 import { collectMetrics } from './metrics';
 import { mahojiUserSettingsUpdate } from './MUser';
 import { prisma, queryCountStore } from './settings/prisma';
@@ -147,7 +148,7 @@ export const tickers: { name: string; interval: number; timer: NodeJS.Timeout | 
 SELECT users.id, user_stats.last_daily_timestamp
 FROM users
 JOIN user_stats ON users.id::bigint = user_stats.user_id
-WHERE bitfield && '{2,3,4,5,6,7,8}'::int[] AND user_stats."last_daily_timestamp" != -1 AND to_timestamp(user_stats."last_daily_timestamp" / 1000) < now() - INTERVAL '12 hours';
+WHERE bitfield && '{2,3,4,5,6,7,8,12,21,24}'::int[] AND user_stats."last_daily_timestamp" != -1 AND to_timestamp(user_stats."last_daily_timestamp" / 1000) < now() - INTERVAL '12 hours';
 `
 			);
 
@@ -229,14 +230,15 @@ WHERE bitfield && '{2,3,4,5,6,7,8}'::int[] AND user_stats."last_daily_timestamp"
 							BitField.isContributor,
 							BitField.isModerator
 						]
-					},
-					farming_patch_reminders: true
+					}
 				},
 				select: {
-					id: true
+					id: true,
+					bitfield: true
 				}
 			});
-			for (const { id } of users) {
+			for (const { id, bitfield } of users) {
+				if (bitfield.includes(BitField.DisabledFarmingReminders)) continue;
 				const { patches } = await getFarmingInfo(id);
 				for (const patchType of farmingPatchNames) {
 					const patch = patches[patchType];
@@ -298,7 +300,7 @@ WHERE bitfield && '{2,3,4,5,6,7,8}'::int[] AND user_stats."last_daily_timestamp"
 						// Check disable first so minion doesn't have to be free to disable reminders.
 						if (selection.customId === 'DISABLE') {
 							await mahojiUserSettingsUpdate(user.id, {
-								farming_patch_reminders: false
+								bitfield: removeFromArr(bitfield, BitField.DisabledFarmingReminders)
 							});
 							await user.send('Farming patch reminders have been disabled.');
 							return;
@@ -317,7 +319,8 @@ WHERE bitfield && '{2,3,4,5,6,7,8}'::int[] AND user_stats."last_daily_timestamp"
 								guildID: undefined,
 								user: await mUserFetch(user.id),
 								member: message.member,
-								interaction: selection
+								interaction: selection,
+								continueDeltaMillis: selection.createdAt.getTime() - message.createdAt.getTime()
 							});
 						}
 					} catch {
@@ -378,6 +381,15 @@ WHERE bitfield && '{2,3,4,5,6,7,8}'::int[] AND user_stats."last_daily_timestamp"
 		interval: Time.Second * 3,
 		cb: async () => {
 			await GrandExchange.tick();
+		}
+	},
+	{
+		name: 'Cache g.e prices and validate',
+		timer: null,
+		interval: Time.Hour * 4,
+		cb: async () => {
+			await cacheGEPrices();
+			await GrandExchange.extensiveVerification();
 		}
 	}
 ];

@@ -20,6 +20,7 @@ import {
 	ConstructionActivityTaskOptions,
 	CookingActivityTaskOptions,
 	CraftingActivityTaskOptions,
+	CutLeapingFishActivityTaskOptions,
 	DarkAltarOptions,
 	EnchantingActivityTaskOptions,
 	FarmingActivityTaskOptions,
@@ -76,6 +77,10 @@ export const taskCanBeRepeated = (type: activity_type_enum) =>
 	).includes(type);
 
 export const tripHandlers = {
+	[activity_type_enum.SpecificQuest]: {
+		commandName: 'm',
+		args: () => ({})
+	},
 	[activity_type_enum.HalloweenEvent]: {
 		commandName: 'm',
 		args: () => ({})
@@ -85,6 +90,10 @@ export const tripHandlers = {
 		args: () => ({})
 	},
 	[activity_type_enum.Birdhouse]: {
+		commandName: 'm',
+		args: () => ({})
+	},
+	[activity_type_enum.StrongholdOfSecurity]: {
 		commandName: 'm',
 		args: () => ({})
 	},
@@ -213,7 +222,7 @@ export const tripHandlers = {
 	},
 	[activity_type_enum.DarkAltar]: {
 		commandName: 'runecraft',
-		args: (data: DarkAltarOptions) => ({ rune: darkAltarRunes[data.rune].item.name })
+		args: (data: DarkAltarOptions) => ({ rune: `${darkAltarRunes[data.rune].item.name} (zeah)` })
 	},
 	[activity_type_enum.Runecraft]: {
 		commandName: 'runecraft',
@@ -295,6 +304,13 @@ export const tripHandlers = {
 			zahur: data.zahur
 		})
 	},
+	[activity_type_enum.CutLeapingFish]: {
+		commandName: 'cook',
+		args: (data: CutLeapingFishActivityTaskOptions) => ({
+			name: itemNameFromID(data.fishID),
+			quantity: data.quantity
+		})
+	},
 	[activity_type_enum.Hunter]: {
 		commandName: 'hunt',
 		args: (data: HunterActivityTaskOptions) => ({
@@ -352,6 +368,7 @@ export const tripHandlers = {
 		args: (data: MonsterActivityTaskOptions) => {
 			let method: PvMMethod = 'none';
 			if (data.usingCannon) method = 'cannon';
+			if (data.chinning) method = 'chinning';
 			else if (data.burstOrBarrage === SlayerActivityConstants.IceBarrage) method = 'barrage';
 			else if (data.burstOrBarrage === SlayerActivityConstants.IceBurst) method = 'burst';
 			return {
@@ -413,7 +430,7 @@ export const tripHandlers = {
 	[activity_type_enum.PuroPuro]: {
 		commandName: 'activities',
 		args: (data: PuroPuroActivityTaskOptions) => ({
-			puro_puro: { impling: data.implingID || '', dark_lure: data.darkLure }
+			puro_puro: { implingTier: data.implingTier || '', dark_lure: data.darkLure }
 		})
 	},
 	[activity_type_enum.Questing]: {
@@ -649,6 +666,7 @@ export async function repeatTrip(
 		guildID: interaction.guildId,
 		member: interaction.member,
 		channelID: interaction.channelId,
-		user: interaction.user
+		user: interaction.user,
+		continueDeltaMillis: interaction.createdAt.getTime() - interaction.message.createdTimestamp
 	});
 }
