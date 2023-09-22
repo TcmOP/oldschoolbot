@@ -28,6 +28,7 @@ import {
 	globalConfig,
 	META_CONSTANTS
 } from '../../lib/constants';
+import { syncDocs } from '../../lib/docsActivity';
 import { generateGearImage } from '../../lib/gear/functions/generateGearImage';
 import { GearSetup } from '../../lib/gear/types';
 import { GrandExchange } from '../../lib/grandExchange';
@@ -784,6 +785,11 @@ export const adminCommand: OSBMahojiCommand = {
 					description: 'The reason'
 				}
 			]
+		},
+		{
+			type: ApplicationCommandOptionType.Subcommand,
+			name: 'sync_docs',
+			description: 'Sync docs'
 		}
 	],
 	run: async ({
@@ -814,12 +820,25 @@ export const adminCommand: OSBMahojiCommand = {
 		view?: { thing: string };
 		wipe_bingo_temp_cls?: {};
 		give_items?: { user: MahojiUserOption; items: string; reason?: string };
+		sync_docs?: {};
 	}>) => {
 		await deferInteraction(interaction);
 
 		const adminUser = await mUserFetch(userID);
 		const isOwner = OWNER_IDS.includes(userID.toString());
 		const isMod = isOwner || adminUser.bitfield.includes(BitField.isModerator);
+		const IsWikiContributor = isMod || adminUser.bitfield.includes(BitField.IsWikiContributor);
+
+		/**
+		 * Docs/Wiki command(s)
+		 */
+
+		if (!IsWikiContributor) return randArrItem(gifs);
+		if (options.sync_docs) {
+			await deferInteraction(interaction);
+			await syncDocs();
+			return 'Docs updated';
+		}
 		if (!guildID || !isMod || (production && guildID.toString() !== SupportServer)) return randArrItem(gifs);
 
 		if (!guildID || !isMod || (production && guildID.toString() !== '342983479501389826')) return randArrItem(gifs);
