@@ -5,47 +5,37 @@ import { GITBOOK_SPACE_ID, GITBOOK_TOKEN } from '../config';
 import { prisma } from './settings/prisma';
 import { logError } from './util/logError';
 
-export interface DocsContent {
-	object: string;
-	id: string;
-	parents: string[];
-	pages: DocsPages[];
-	files: DocsFiles[];
-	urls: string[];
-	git: string[];
-}
-
-export interface DocsPages {
+export interface DocsSection {
 	id: string;
 	title: string;
-	kind: 'sheet' | string;
-	[key: string]: any;
-	pages?: DocsPages[];
-	markdown: string;
-}
-
-export interface DocsSheet {
-	id: string;
-	title: string;
-	kind: 'sheet' | string;
-	description: string;
+	body: string;
 	path: string;
-	slug: string;
-	pages?: DocsSheet[];
-	[key: string]: any;
-	markdown: string;
 }
 
-export interface DocsFiles {
+export interface DocsArticle {
 	id: string;
-	name: string;
-	downloadURL: string;
-	contentType: string;
+	title: string;
+	path: string;
+	sections: DocsSection[];
+}
+
+export interface DocsResponse {
+	items: DocsArticle[];
+	next: JSON;
 }
 
 export interface DocsDefaultResults {
 	name: string;
 	value: string;
+}
+
+export interface DocsAskResults {
+	answer: DocsAnswer[];
+}
+
+export interface DocsAnswer {
+	text: string;
+	followupQuestions: string[];
 }
 
 export const DefaultDocsResults: DocsDefaultResults[] = [
@@ -68,76 +58,71 @@ export const DefaultDocsResults: DocsDefaultResults[] = [
 ];
 
 export async function syncDocs() {
-	try {
-		const results = await fetch(`https://api.gitbook.com/v1/spaces/${GITBOOK_SPACE_ID}/content`, {
-			headers: {
-				Authorization: `Bearer ${GITBOOK_TOKEN}`
-			}
-		});
-
-		const resultJson = await results.json();
-
-		console.log(resultJson);
-		let articlesToUpdate: { id: string; name: string; value: string; body: string }[] = [];
-		const { pages } = resultJson as DocsContent;
-
-		const sheets: string[] = [];
-
-		function filter(pages: DocsPages[]) {
-			pages.forEach(p => {
-				if (p.kind === 'sheet') sheets.push(p.id);
-
-				if (p.pages && p.pages.length > 0) filter(p.pages);
-			});
-		}
-
-		filter(pages);
-
-		for (let sheet of sheets) {
-			const pageResults = await fetch(
-				`https://api.gitbook.com/v1/spaces/${GITBOOK_SPACE_ID}/content/page/${sheet}?format=markdown`,
+	let page = 0;
+	let next = [];
+	do {
+		try {
+			const results = await fetch(
+				`https://api.gitbook.com/v1/spaces/${GITBOOK_SPACE_ID}/search?query=*&limit=1000&page=${page}`,
 				{
 					headers: {
 						Authorization: `Bearer ${GITBOOK_TOKEN}`
 					}
 				}
 			);
-			const pageRes: DocsSheet = await pageResults.json();
-			let parsedPage: string = pageRes.markdown;
-			parsedPage = parsedPage
-				.replace(/(---)(\n)(\bdescription: )([>\n -]*)([a-zA-Z. \n/'!-,";:<>`~_+=?-]+)(\n---)/g, '$5') // Format page description if present.
-				.replace(/^#[a-zA-Z0-9 !?]+[\\n|\n]+/, '') // Remove page title
-				.replace(/((\|[^|\r\n]*)+\|(\r?\n|\r)?)+/g, '') // Remove any tables because they won't render
-				.replaceAll(/(##+\s)([a-zA-Z0-9 !?()-\/:]+)([\\][n])+/g, '**$2**\n'); // Make section headers bold
 
-			articlesToUpdate.push({
-				id: pageRes.id,
-				name: pageRes.title,
-				value: pageRes.path,
-				body: parsedPage
-			});
+			const resultJson = await results.json();
+			let articlesToUpdate: { id: string; name: string; value: string; body: string }[] = [];
+			next = resultJson.next;
+			const { items } = resultJson as DocsResponse;
+			for (let item of items) {
+				if (item.sections.length === 0) {
+					articlesToUpdate.push({
+						id: item.id,
+						name: item.title,
+						value: item.path,
+						body: `${item.title} - homepage`
+					});
+					continue;
+				}
+				for (let section of item.sections) {
+					if (section.title === '')
+						articlesToUpdate.push({
+							id: section.id,
+							name: item.title,
+							value: item.path,
+							body: section.body.substring(0, 4999)
+						});
+					// console.log(`id: ${section.id} \nname: ${item.title}\nvalue: ${item.path}\n\n`);
+					// console.log(`id: ${section.id} \n name: ${item.title} - ${section.title}\n value: ${section.path}`);
+					articlesToUpdate.push({
+						id: section.id,
+						name: `${item.title} - ${section.title}`.toString(),
+						value: section.path,
+						body: section.body.substring(0, 4999)
+					});
+				}
+			}
+			// console.log(articlesToUpdate);
+			await prisma.$transaction(
+				articlesToUpdate.map(a =>
+					prisma.wikiDocs.upsert({
+						where: { path: a.value },
+						update: {},
+						create: {
+							id: a.id,
+							name: a.name,
+							path: a.value,
+							body: a.body.substring(0, 4999)
+						}
+					})
+				)
+			);
+			page++;
+		} catch (err: any) {
+			logError(err);
 		}
-
-		// console.log(`id: ${section.id} \nname: ${item.title}\nvalue: ${item.path}\n\n`);
-		// console.log(`id: ${section.id} \n name: ${item.title} - ${section.title}\n value: ${section.path}`);
-		// console.log(articlesToUpdate);
-		await prisma.$transaction(
-			articlesToUpdate.map(a =>
-				prisma.wikiDocs.upsert({
-					create: {
-						id: a.id,
-						name: a.name,
-						path: a.value,
-						body: a.body.substring(0, 4999)
-					},
-					update: { id: a.id, name: a.name, path: a.value, body: a.body.substring(0, 4999) },
-					where: { path: a.value }
-				})
-			)
-		);
-	} catch (err: any) {
-		logError(err);
-	}
+	} while (typeof next !== 'undefined');
 
 	return 'Updating Docs';
 }
